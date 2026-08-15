@@ -52,5 +52,7 @@ void tokens_github_net_start(void);
 /* Hoppa till en VibePulse-vy utan animation — bänkens och BMP-dumparnas
  * ratt. */
 void tokens_show_view(int idx);
+void tokens_show_detail(int idx);
+void tokens_hide_detail(void);
 
 #endif

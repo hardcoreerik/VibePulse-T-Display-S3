@@ -54,6 +54,9 @@ void tokens_show_view(int index) {
   usage_screen_show_view(index);
 }
 
+void tokens_show_detail(int index) { usage_screen_show_detail(index); }
+void tokens_hide_detail(void) { usage_screen_hide_detail(); }
+
 static void tick_cb(lv_timer_t *timer) {
   (void)timer;
   int64_t now_us = torget_now_us();

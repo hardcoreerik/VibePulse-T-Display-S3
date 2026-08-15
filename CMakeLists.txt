@@ -7,6 +7,13 @@
 # Det som delas mellan dem är platform/, components/app_* (utom net.c) och
 # kärnkomponenterna — samma kod på Macen som på hyllan, per design.
 cmake_minimum_required(VERSION 3.16)
+
+# The upstream project targets one exact Waveshare panel. Keep that build as
+# the default, but isolate the LilyGO host layer and compact layout.
+option(TORGET_TDISPLAY_S3 "Build the LilyGO T-Display-S3 port" OFF)
+if(TORGET_TDISPLAY_S3)
+  add_compile_definitions(TORGET_TDISPLAY_S3)
+endif()
 # third_party/ innehåller vendrade komponenter (cjson) som apparna delar.
 # Vibbe (app_buddy) bor i sitt eget repo (~/Buddy) och delas in härifrån —
 # EN källa, ingen kopiedrift (inflyttsbeslutet 2026-08-07: "alla tre ska bo

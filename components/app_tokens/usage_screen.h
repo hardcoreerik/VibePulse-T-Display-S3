@@ -25,5 +25,7 @@ void usage_screen_tick(int64_t now_us);
 void usage_screen_set_stale(bool stale);
 void usage_screen_show_view(int index);
 int usage_screen_current_view(void);
+void usage_screen_show_detail(int index);
+void usage_screen_hide_detail(void);
 
 #endif

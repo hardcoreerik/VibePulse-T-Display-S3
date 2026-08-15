@@ -6,7 +6,14 @@
 # utcheckade dras komponenten in och TORGET_HAVE_* grindar registerposten i
 # registry.c. En färsk klon utifrån bygger bara VibePulse.
 # torget_ota: bootens hälsogrind (boot_health.h) och KEY3:s underhållshåll.
-set(TORGET_MAIN_REQUIRES torget_app app_tokens torget_ota)
+if(TORGET_TDISPLAY_S3)
+  set(TORGET_MAIN_SRCS "main_tdisplay_s3.c" "registry.c" "../platform/torget_ui.c")
+  set(TORGET_MAIN_REQUIRES torget_app app_tokens esp_lvgl_adapter)
+else()
+  set(TORGET_MAIN_SRCS "main.c" "rotation.c" "registry.c"
+      "../platform/torget_ui.c" "../platform/boot_screen.c")
+  set(TORGET_MAIN_REQUIRES torget_app app_tokens torget_ota)
+endif()
 # OBS $ENV{}: den här filen körs TVÅ gånger — en gång i ESP-IDF:s
 # early-expansion (då REQUIRES läses ut) och en gång i det riktiga bygget. I
 # expansionspasset syns INTE cache-/normalvariablerna som rot-CMakeLists.txt
@@ -23,11 +30,7 @@ if(EXISTS "$ENV{TORGET_BUDDY_DIR}/app_buddy")
 endif()
 
 idf_component_register(
-  SRCS "main.c"
-       "rotation.c"
-       "registry.c"
-       "../platform/torget_ui.c"
-       "../platform/boot_screen.c"
+  SRCS ${TORGET_MAIN_SRCS}
   # ".." ger `#include "secrets.h"` (gitignorad, kopieras ur secrets.h.example)
   INCLUDE_DIRS "." ".." "../platform"
   REQUIRES ${TORGET_MAIN_REQUIRES}

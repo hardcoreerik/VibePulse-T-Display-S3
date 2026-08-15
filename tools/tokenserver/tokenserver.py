@@ -32,7 +32,11 @@ Autostart: se README.md härintill (launchd-plist medföljer).
 """
 
 import argparse
-import fcntl
+try:
+    import fcntl
+except ImportError:  # Windows
+    fcntl = None
+    import msvcrt
 import hashlib
 import json
 import logging
@@ -84,7 +88,17 @@ log = logging.getLogger("tokenserver")
 # överlever omstart och syns i Konsol-appen — /tmp gjorde ingetdera. launchd
 # har ingen egen rotation, så servern tar den vid start: se
 # _maybe_rotate_own_log.
-DEFAULT_LOG_PATH = Path.home() / "Library" / "Logs" / "torget-tokenserver.log"
+def _state_dir():
+    """Private, per-user state location on every supported desktop OS."""
+    if os.name == "nt":
+        return Path(os.environ.get("LOCALAPPDATA", Path.home())) / "VibePulse"
+    return Path.home() / "Library" / "Application Support" / "VibePulse"
+
+
+STATE_DIR = _state_dir()
+DEFAULT_LOG_PATH = (STATE_DIR / "Logs" / "tokenserver.log"
+                    if os.name == "nt"
+                    else Path.home() / "Library" / "Logs" / "torget-tokenserver.log")
 _LOG_CAP_BYTES = 5 * 1024 * 1024
 _LOG_TAIL_KEEP_BYTES = 256 * 1024
 
@@ -244,8 +258,7 @@ def _get_usage_history(path=None):
     with _history_lock:
         if _default_usage_history is None:
             _default_usage_history = UsageHistory(
-                Path.home() / "Library" / "Application Support" /
-                "VibePulse" / "usage-history.json")
+                STATE_DIR / "usage-history.json")
         return _default_usage_history
 
 
@@ -256,8 +269,7 @@ def _get_quota_cache(path=None):
     with _quota_cache_lock:
         if _default_quota_cache is None:
             _default_quota_cache = QuotaCache(
-                Path.home() / "Library" / "Application Support" /
-                "VibePulse" / "quota-cache.json")
+                STATE_DIR / "quota-cache.json")
         return _default_quota_cache
 
 
@@ -550,6 +562,12 @@ def _read_oauth_candidates():
     first.
     """
     candidates = []
+    # Windows and Linux deliberately use an explicit process-local secret.
+    # It is never printed, persisted, or sent to the ESP32; it is used only
+    # for the same localhost service-to-Anthropic usage probe as macOS.
+    env_token = os.environ.get("VIBEPULSE_CLAUDE_OAUTH_TOKEN")
+    if env_token and env_token.strip():
+        candidates.append((env_token.strip(), None))
     process_token = _read_process_oauth_token()
     if process_token:
         candidates.append((process_token, None))
@@ -723,15 +741,13 @@ def _usage_request(token):
 # api.anthropic.com. Båda 429-incidenterna 2026-08-13/14 var i grunden
 # överflödig upstream-trafik — den här grinden gör varianten "en instans
 # till" strukturellt ofarlig i stället för att lita på att ingen startar en.
-_PROBE_LOCK_PATH = (Path.home() / "Library" / "Application Support" /
-                    "VibePulse" / "claude-probe.lock")
+_PROBE_LOCK_PATH = STATE_DIR / "claude-probe.lock"
 
 # Straffrutan ÖVERLEVER omstarter: cooldownen var ren minnesstat, så varje
 # serveromstart glömde pågående backoff och petade direkt på den heta
 # bucketen igen (sett två gånger 2026-08-14, båda självförvållade). Filen
 # bor bredvid probelåset och läses lat vid första probecykeln.
-_PROBE_STATE_PATH = (Path.home() / "Library" / "Application Support" /
-                     "VibePulse" / "claude-probe-state.json")
+_PROBE_STATE_PATH = STATE_DIR / "claude-probe-state.json"
 _probe_state_loaded = False
 
 
@@ -815,8 +831,17 @@ def _hold_probe_lock():
     """Icke-blockerande flock; returnerar filobjektet (= låset) eller None."""
     try:
         _PROBE_LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
-        handle = open(_PROBE_LOCK_PATH, "w")
-        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        handle = open(_PROBE_LOCK_PATH, "a+")
+        if fcntl is not None:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        else:
+            # Lock one stable byte; closing the handle releases it even if
+            # the process exits unexpectedly.
+            handle.seek(0)
+            handle.write("0")
+            handle.flush()
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
         return handle
     except OSError:
         try:
@@ -2123,8 +2148,7 @@ def main():
     Handler.agent_status = status_service
 
     max_tracker_store = MaxTrackerStore(
-        Path.home() / "Library" / "Application Support" / "VibePulse" /
-        "max-tracker.json",
+        STATE_DIR / "max-tracker.json",
         CODEX_SESSIONS, Handler.projects_dir)
     Handler.max_tracker_store = max_tracker_store
     Handler.plans = {"claude": args.claude_plan, "codex": args.codex_plan}

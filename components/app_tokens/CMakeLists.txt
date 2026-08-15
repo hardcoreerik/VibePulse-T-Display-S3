@@ -1,11 +1,19 @@
 # VibePulse som Torget-app: usage + statisk agentmonitor för Claude/Codex.
 # app.c, parsrar och monitorlogik delas
 # byte-identiskt med simulatorn; nätadaptrarna finns bara i det här bygget.
+set(TK_USAGE_SCREEN_SRC "usage_screen.c")
+set(TK_AGENT_MONITOR_SRCS "agent_monitor_policy.c" "agent_completion_policy.c"
+                          "agent_monitor.c" "agent_assets.c")
+if(TORGET_TDISPLAY_S3)
+  set(TK_USAGE_SCREEN_SRC "usage_screen_mini.c")
+  # The compact target still uses VibePulse's real Claude/Codex artwork.
+  set(TK_AGENT_MONITOR_SRCS "agent_monitor_policy.c" "agent_assets.c")
+endif()
+
 idf_component_register(
-  SRCS "app.c" "tokens_parse.c" "usage_presenter.c" "usage_screen.c"
+  SRCS "app.c" "tokens_parse.c" "usage_presenter.c" ${TK_USAGE_SCREEN_SRC}
        "agent_status_parse.c" "agent_usage.c"
-       "agent_monitor_policy.c" "usage_live_policy.c" "agent_completion_policy.c"
-       "agent_monitor.c" "agent_assets.c"
+       ${TK_AGENT_MONITOR_SRCS} "usage_live_policy.c"
        "github_status_parse.c" "project_star_popup_policy.c"
        "project_star_assets.c" "project_star_chime.c" "project_star_popup.c"
        "agent_net_policy.c" "net.c" "agent_net.c"

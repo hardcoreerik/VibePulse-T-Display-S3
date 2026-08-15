@@ -1,6 +1,6 @@
 # tokenserver — VibePulse Mac-tjänst
 
-> **English quickstart:** `python3 tokenserver.py`. Pure Python 3 stdlib,
+> **Windows quickstart:** `py tokenserver.py`. Pure Python 3 stdlib,
 > nothing to install. It reads your local Claude Code/Codex logs and serves
 > `/api/tokens` + `/api/agent-status` + `/api/max-tracker` on port 8737 for
 > the screen. Add `--github-repo owner/repository` for the optional public
@@ -19,13 +19,18 @@ Serverar Claude- och Codex-användningen som platt JSON enligt glance-
 mönstret (kontrakt v2). Skärmen hämtar `/api/tokens` över LAN var 30:e
 sekund. Ren Python 3-stdlib — inget att installera. Tre källor:
 
-1. **Volymen** — `~/.claude/projects/**/*.jsonl` skannas inkrementellt:
+1. **Volymen** — `%USERPROFILE%\\.claude\\projects\\**\\*.jsonl` on Windows
+   (or `~/.claude/projects/**/*.jsonl` on macOS) is scanned incrementally:
    dagens/månadens tokens, brinntakt, sessioner.
-2. **Claudes tak** (Clawdmeter-mönstret) — tjänsten läser Claude Desktops
+2. **Claudes tak** (Clawdmeter-mönstret) — on macOS tjänsten läser Claude Desktops
    aktiva, injicerade OAuth-token eller Claude Codes nyckelringsfallback och
    gör en minimal API-förfrågan
    (`max_tokens: 0` — prefill utan output, i praktiken gratis) var 120:e
-   sekund; rate-limit-headrarna i svaret bär usage-panelens tre fönster:
+   sekund; rate-limit-headrarna i svaret bär usage-panelens tre fönster.
+   On Windows, Claude activity and token volume work after signing in to
+   Claude Code; live quota requires the user to set the private,
+   process-local `VIBEPULSE_CLAUDE_OAUTH_TOKEN` environment variable. It is
+   never logged, saved by VibePulse, or sent to the display.
    5-timmars, veckan och veckan för tyngsta modellen (Fable/Opus).
    Tokenen lämnar aldrig Macen — skärmen får bara procenttal.
 3. **Codex tak** — tjänsten frågar Codex lokala, skrivskyddade app-server via
