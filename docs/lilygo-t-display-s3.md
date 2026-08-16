@@ -32,11 +32,18 @@ in firmware, on the SD card, or on the LAN payload.
 
 Codex week usage and agent state are read from Codex's local session data.
 Claude activity and token volume come from Claude Code's local logs. On
-Windows, live Claude quota is opt-in: set a private
-`VIBEPULSE_CLAUDE_OAUTH_TOKEN` environment variable for the token-service
-process. Never paste that value into chat, `secrets.h`, a source file, or the
-display. The service uses it only for Anthropic's read-only usage request and
-never exposes it to the ESP32.
+Windows, live Claude 5-hour/weekly quota works automatically once step 1's
+`claude login` has run: the token service reads Claude Code's own local
+session file (`%USERPROFILE%\.claude\.credentials.json`, the same store
+`claude login` already writes to, with no separate consent step) and makes
+Anthropic's read-only usage request with it. `VIBEPULSE_CLAUDE_OAUTH_TOKEN`
+remains available as a private, process-local override for edge cases (a
+second account, a machine where that file can't be read); if set, it takes
+priority. Never paste either value into chat, `secrets.h`, a source file, or
+the display. The service uses the token only for that one read-only request
+and never exposes it to the ESP32. See
+`tools/tokenserver/README.md` ("Live Claude quota on Windows") for the full
+setup, security properties, and the manual-override fallback.
 
 ## Build prerequisites
 

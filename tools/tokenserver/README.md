@@ -3,7 +3,9 @@
 > **Windows quickstart:** `py tokenserver.py`. Pure Python 3 stdlib,
 > nothing to install. It reads your local Claude Code/Codex logs and serves
 > `/api/tokens` + `/api/agent-status` + `/api/max-tracker` on port 8737 for
-> the screen. Add `--github-repo owner/repository` for the optional public
+> the screen. Live Claude 5-hour/weekly quota works automatically once
+> you've run `claude login` on this PC — see "Live Claude quota on Windows"
+> below; no extra flag needed. Add `--github-repo owner/repository` for the optional public
 > GitHub Stars/Forks feed at `/api/github`; it needs no token. Add
 > `--claude-plan {pro,max5x,max20x}` and/or `--codex-plan
 > {plus,pro}` to show a plan badge on the Max Tracker pages; both flags are
@@ -27,12 +29,10 @@ sekund. Ren Python 3-stdlib — inget att installera. Tre källor:
    gör en minimal API-förfrågan
    (`max_tokens: 0` — prefill utan output, i praktiken gratis) var 120:e
    sekund; rate-limit-headrarna i svaret bär usage-panelens tre fönster.
-   On Windows, Claude activity and token volume work after signing in to
-   Claude Code; live quota requires the user to set the private,
-   process-local `VIBEPULSE_CLAUDE_OAUTH_TOKEN` environment variable. It is
-   never logged, saved by VibePulse, or sent to the display.
-   5-timmars, veckan och veckan för tyngsta modellen (Fable/Opus).
-   Tokenen lämnar aldrig Macen — skärmen får bara procenttal.
+   **On Windows** the same probe runs automatically — see "Live Claude
+   quota on Windows" below. 5-timmars, veckan och veckan för tyngsta
+   modellen (Fable/Opus). Tokenen lämnar aldrig datorn — skärmen får bara
+   procenttal.
 3. **Codex tak** — tjänsten frågar Codex lokala, skrivskyddade app-server via
    `account/rateLimits/read`, alltså samma aktuella snapshot som Codex-panelen
    visar. Om app-servern saknas används en passiv fallback: begränsad läsning
@@ -55,6 +55,87 @@ rotendpointens diagnostik, aldrig ett kvotvärde.
 python3 tokenserver.py
 curl http://localhost:8737/api/tokens
 ```
+
+## Live Claude quota on Windows
+
+Claude Code has no OS-keychain integration on Windows: `claude login`
+writes the signed-in session straight to a local file,
+`%USERPROFILE%\.claude\.credentials.json`, as
+`{"claudeAiOauth": {"accessToken": ..., "expiresAt": ..., ...}}` — the exact
+same JSON shape macOS instead hands to the Keychain (`security
+find-generic-password -s "Claude Code-credentials" -w`), which the mac side
+of this file already parses. This is Claude Code's own official,
+already-authorized credential store, not something invented for VibePulse:
+the trust boundary is identical to the Keychain read on macOS — a token the
+user granted to Claude Code by running `claude login` on this machine,
+never a new consent flow.
+
+**What happens automatically:** once you've run `claude login` (or are
+signed in via any Claude Code session) on this Windows PC, the tokenserver
+reads that file fresh on every probe cycle (every ~2–8 minutes, backing off
+on failures) and makes the same read-only
+`https://api.anthropic.com/api/oauth/usage` request the macOS path already
+makes. No setup step, no extra flag, no separate consent — `claude login`
+*is* the consent. `claude logout` (or letting the token expire without
+Claude Code refreshing it) revokes it just as cleanly: the file goes empty
+or stale and the probe reports `no_claude_oauth_token` again.
+
+**Security properties:**
+- The token is read, held in memory for the single outbound HTTPS request,
+  and discarded. VibePulse never writes it to disk, never logs it, and
+  never sends it anywhere but `api.anthropic.com` — the screen only ever
+  receives percentages and reset minutes.
+- No separate secure-storage layer is introduced on purpose: the safest
+  place for this token is exactly where Claude Code already put it,
+  protected by the same NTFS user-profile permissions as every other file
+  under `%USERPROFILE%\.claude`. Re-encrypting it into DPAPI/Credential
+  Manager would just be a second copy of the same secret to keep in sync
+  and revoke.
+- `VIBEPULSE_CLAUDE_OAUTH_TOKEN` still works as an explicit, process-local
+  override (a second account, a machine where the credentials file can't be
+  read) and always takes priority over the file when set.
+
+**Verified live** against a real signed-in Claude Code session on Windows
+2026-08-15: `curl http://127.0.0.1:8737/api/tokens` returned genuine
+`claudeSessionPct`/`claudeWeekPct` values, and the root diagnostics route
+(`curl http://127.0.0.1:8737/`) showed `"claudeProbe": "usage_http_200 + ok"`.
+
+**Known limitation:** this reads an undocumented file whose shape is
+inferred from Claude Code's own cross-platform behavior (matching exactly
+what the macOS Keychain already stores), not from a published Anthropic
+API contract for local credential storage. If a future Claude Code release
+changes the file's location or shape, the read fails closed —
+`_read_windows_credentials_file` catches every exception and returns
+`(None, None)`, so the tokenserver falls back to `no_claude_oauth_token`
+(or the manual override below) rather than crashing or serving garbage.
+
+## Manual override (last resort)
+
+For a Windows machine where the automatic path above genuinely can't work
+(no local `claude login`, a locked-down credential store), copy
+`claude_usage_override.json.example` to `claude_usage_override.json`
+(already gitignored — never commit either file) and type in the numbers
+from your own Claude usage page. Rules the tokenserver enforces:
+
+- **It is display-only and always loses to live data.** The tokenserver
+  fills in only the specific fields (`claudeSessionPct`/`ResetMin`,
+  `claudeWeekPct`/`ResetMin`, `claudeModelWeekPct`/`ResetMin`/`Label`) that
+  the real probe (env token, Windows credentials file, or macOS Keychain)
+  left `null` — a live value for any one field always wins outright,
+  field by field, even while the other fields are still filled from the
+  override.
+- **It never touches history or Max Tracker.** `/api/max-tracker` and the
+  local usage-history file only ever record genuine live observations —
+  hand-typed numbers are never mistaken for a real measurement there.
+- **It can't be confused with live data at the wire level.** Every
+  `/api/tokens` response carries `"claudeQuotaOverrideActive": true|false`,
+  and the server logs a one-time warning the moment any override value
+  starts being served, plus a recovery line the moment the real probe takes
+  back over. `curl http://127.0.0.1:8737/` also surfaces the current state
+  as `claudeQuotaOverrideActive`.
+- **It stays private.** Both the file and its `.example` explicitly forbid
+  putting credentials, cookies, or tokens in it — only the plain
+  percentages and reset minutes visible on your own usage page.
 
 ## Valfri GitHub-sida och stjärnhändelser
 

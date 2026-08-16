@@ -1,5 +1,5 @@
 {
-  "_instructions": "Copy this file to claude_usage_override.json. Enter the percentage and reset values shown in your own Claude usage page. Use null for a value you do not know. Do not put passwords, cookies, OAuth tokens, or API keys here.",
+  "_instructions": "LAST RESORT ONLY. Copy this file to claude_usage_override.json (already gitignored -- never commit either file). The tokenserver reads it automatically, but ONLY to fill in fields the real probe could not answer itself (no `claude login` on this machine, a locked-down credential store, etc.) -- any field the live probe DOES answer always wins over what is typed here, and these are never real-time: they freeze at whatever you typed until you edit the file again or the real probe starts working. Every response that used any of these numbers carries \"claudeQuotaOverrideActive\": true so you can tell manual from live at a glance. Enter only the percentage and reset values shown on your own Claude usage page. Use null for a value you do not know -- do not guess. Never put passwords, cookies, OAuth tokens, session tokens, or API keys in this file.",
   "claudeSessionPct": null,
   "claudeSessionResetMin": null,
   "claudeWeekPct": null,

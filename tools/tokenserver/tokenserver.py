@@ -550,6 +550,35 @@ def _read_keychain_oauth():
         return None, None
 
 
+_WINDOWS_CREDENTIALS_PATH = Path.home() / ".claude" / ".credentials.json"
+
+
+def _read_windows_credentials_file():
+    """Return ``(token, expires_at_ms)`` from Claude Code's own local OAuth
+    store on Windows.
+
+    Claude Code has no OS-keychain integration on Windows: ``claude login``
+    writes the session straight to ``~/.claude/.credentials.json`` as the
+    same ``{"claudeAiOauth": {"accessToken", "expiresAt", ...}}`` shape macOS
+    instead hands to the Keychain (see ``_read_keychain_oauth`` above, and
+    the identical parsing there). The file already exists once the user has
+    signed in to Claude Code on this machine -- no separate consent step,
+    no new secret created, no token retained by VibePulse. It is read fresh
+    on every probe cycle (Claude Code rewrites it whenever it refreshes), so
+    a plain ``claude login`` / ``claude logout`` on this machine is both the
+    setup step and the revocation step. Never logged, never re-written,
+    never sent anywhere but the same official
+    ``https://api.anthropic.com/api/oauth/usage`` call the probe already
+    makes for macOS.
+    """
+    try:
+        raw = _WINDOWS_CREDENTIALS_PATH.read_text(encoding="utf-8")
+        oauth = json.loads(raw).get("claudeAiOauth") or {}
+        return oauth.get("accessToken"), oauth.get("expiresAt")
+    except Exception:
+        return None, None
+
+
 def _read_oauth_candidates():
     """Distinct token candidates as ``[(token, expires_at_ms), ...]``.
 
@@ -562,12 +591,20 @@ def _read_oauth_candidates():
     first.
     """
     candidates = []
-    # Windows and Linux deliberately use an explicit process-local secret.
-    # It is never printed, persisted, or sent to the ESP32; it is used only
-    # for the same localhost service-to-Anthropic usage probe as macOS.
+    # VIBEPULSE_CLAUDE_OAUTH_TOKEN is an explicit, process-local override for
+    # every platform (a second account, a CI box, a machine where Claude
+    # Code's own store can't be read). It is never printed, persisted, or
+    # sent to the ESP32; it is used only for the same localhost
+    # service-to-Anthropic usage probe as macOS. Checked first so it can
+    # always shadow whatever Claude Code itself has on disk.
     env_token = os.environ.get("VIBEPULSE_CLAUDE_OAUTH_TOKEN")
     if env_token and env_token.strip():
         candidates.append((env_token.strip(), None))
+    if os.name == "nt":
+        cred_token, cred_expires = _read_windows_credentials_file()
+        if cred_token and cred_token != env_token:
+            candidates.append((cred_token, cred_expires))
+        return candidates
     process_token = _read_process_oauth_token()
     if process_token:
         candidates.append((process_token, None))
@@ -1463,6 +1500,71 @@ def _reset_minutes(reset_at, now_ts):
     return max(0, int(round((reset_at - now_ts) / 60)))
 
 
+# ---------------------------------------------------------------------------
+# Manual Claude usage override: a last-resort, hand-typed stand-in for the
+# real probe (Windows credentials file / macOS Keychain / env token), for a
+# machine where none of those are usable -- no local `claude login`, a
+# locked-down credential store, etc. It NEVER feeds max_tracker or
+# usage_history (those must only ever hold genuine observations -- typed
+# numbers are not history), and it only fills fields the real probe left
+# `None`, so a live token always wins outright, field by field. Every field
+# it does fill is flagged with `claudeQuotaOverrideActive: true` in the
+# response -- an additive key existing screens ignore, but nothing here
+# claims to be indistinguishable from live data at the wire-contract level.
+_CLAUDE_OVERRIDE_PATH = (
+    Path(os.path.dirname(os.path.abspath(__file__)))
+    / "claude_usage_override.json")
+_override_warned_active = False
+
+
+def _load_claude_usage_override(path=None):
+    """Read the gitignored manual-override file, or {} if absent/invalid.
+
+    Read fresh every call: the file is a few hundred bytes, edited by hand
+    at most a few times a session, and a stale in-memory copy after an edit
+    would be a worse failure mode than the extra disk read.
+    """
+    target = path or _CLAUDE_OVERRIDE_PATH
+    try:
+        data = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _apply_claude_usage_override(result, override):
+    """Fill only the Claude quota fields the live probe left ``None``.
+
+    Returns True if anything was actually filled in, so the caller can flag
+    the response and log the (rare, loud) transition into override use.
+    """
+    pairs = (
+        ("claudeSessionPct", "claudeSessionResetMin", None),
+        ("claudeWeekPct", "claudeWeekResetMin", None),
+        ("claudeModelWeekPct", "claudeModelWeekResetMin",
+         "claudeModelWeekLabel"),
+    )
+    applied = False
+    for pct_key, reset_key, label_key in pairs:
+        if result.get(pct_key) is not None:
+            continue  # a live/cached value already answered this field
+        pct = override.get(pct_key)
+        reset_min = override.get(reset_key)
+        if (not isinstance(pct, (int, float)) or isinstance(pct, bool) or
+                not 0 <= pct <= 100 or
+                not isinstance(reset_min, (int, float)) or
+                isinstance(reset_min, bool) or reset_min < 0):
+            continue  # partial/unset entries (the example's nulls) stay absent
+        result[pct_key] = round(float(pct), 1)
+        result[reset_key] = int(reset_min)
+        if label_key is not None:
+            label = override.get(label_key)
+            if isinstance(label, str) and label.strip():
+                result[label_key] = label.strip()
+        applied = True
+    return applied
+
+
 def _quota_record_key(record):
     return record.provider, record.scope, record.identity
 
@@ -1857,6 +1959,27 @@ def get_snapshot(projects_dir: Path, history=None, now_ts=None,
                                now=current_ts))
     _add_forecast(result, "claude", claude_forecast)
     _add_forecast(result, "codex", codex_forecast)
+    # Manuell reserv, sist i kedjan och display-only: fyller ENDAST fält
+    # den riktiga proben lämnade None, och rör aldrig max_tracker eller
+    # usage_history ovan -- en handskriven siffra är ingen mätning.
+    override = _load_claude_usage_override()
+    override_active = bool(override) and _apply_claude_usage_override(
+        result, override)
+    result["claudeQuotaOverrideActive"] = override_active
+    global _override_warned_active
+    if override_active and not _override_warned_active:
+        _override_warned_active = True
+        log.warning(
+            "claude_usage_override.json fyller i %s -- HANDSKRIVNA SIFFROR, "
+            "inte en live mätning; tas bort automatiskt så fort proben "
+            "själv svarar",
+            ", ".join(k for k in (
+                "claudeSessionPct", "claudeWeekPct", "claudeModelWeekPct")
+                if result.get(k) is not None))
+    elif not override_active and _override_warned_active:
+        _override_warned_active = False
+        log.info("claude_usage_override.json inte längre i bruk -- "
+                 "proben svarar live igen")
     # OTA-annonsen rider på kvotpollen: noll ny infrastruktur, och enheten
     # avgör själv (mot sin körande version) om notisen ska visas.
     result["otaAvailableVersion"] = _ota_available_version()
@@ -1963,6 +2086,7 @@ class Handler(BaseHTTPRequestHandler):
                 "claudeProbe": _probe_status,
                 "ratelimitHeaders": _probe_headers,
                 "unknownRateLimitBuckets": _probe_unknown_buckets,
+                "claudeQuotaOverrideActive": _override_warned_active,
                 # GET / parsas aldrig av skärmen — fält kan läggas till
                 # utan kontraktsrisk.
                 "usageComputeOk": failing_since is None,

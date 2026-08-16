@@ -36,9 +36,15 @@ are required, and the build gates on their absence:
 Confirm all five before touching anything. Ask the user for anything you
 cannot determine yourself.
 
-1. **macOS?** The tokenserver reads macOS log paths and the keychain. On
-   Linux/Windows the firmware still builds and the simulator still runs, but
-   the data service will not work — see issues
+1. **macOS or Windows?** Both are fully supported. On Windows: token
+   volume/activity read Claude Code's local logs directly, and live Claude
+   5-hour/weekly quota reads Claude Code's own local credentials file
+   automatically once the user has run `claude login` — see
+   [../tools/tokenserver/README.md](../tools/tokenserver/README.md)
+   ("Live Claude quota on Windows") for setup, security properties, and the
+   manual-override fallback. Plain Linux (no local Claude Code session
+   store equivalent wired up yet) still builds firmware and runs the
+   simulator, but the data service will not work there — see issues
    [#2](https://github.com/niclasvestlund-YT/vibepulse/issues/2) /
    [#3](https://github.com/niclasvestlund-YT/vibepulse/issues/3).
 2. **Do they have the board?** Waveshare ESP32-S3-Touch-AMOLED-2.16. No
@@ -145,7 +151,7 @@ are not arriving:
 |---|---|---|
 | `usage_http_200 + ok` | Working. Limits parsed. | Nothing |
 | `not_run` | Probe has not fired yet | It runs every 120 s — wait |
-| `no_claude_oauth_token` | No Claude Desktop / Claude Code token found | Have them sign in to Claude Code on this Mac |
+| `no_claude_oauth_token` | No Claude Desktop / Claude Code token found (macOS: process/keychain; Windows: `.claude\.credentials.json`/env override) | Have them run `claude login` on this machine |
 | `token_expired_…` | Token found but expired | Re-authenticate in Claude Code |
 | `usage_http_401` / `usage_http_403` | Every token source rejected (the probe tries Claude Desktop's process token, then the keychain, and falls back automatically) | Re-authenticate in Claude Code |
 | `usage_http_200 + no_mapped_limits` | Authenticated, but nothing in the usage response mapped (a `; fallback_…` suffix records the header-probe outcome) | Plan may not expose limits; Codex half still works |
