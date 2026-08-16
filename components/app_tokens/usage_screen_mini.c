@@ -231,7 +231,7 @@ static void render_tracker(int tracker_index) {
   snprintf(value, sizeof value, "%d", src->max_days);
   lv_label_set_text(ui.tracker_stats[tracker_index][3], value);
   lv_label_set_text(p->status, src->has_plan ? src->plan_label :
-                    (src->has_avg ? "MAX TRACKER" : "NO HISTORY"));
+                    (src->has_avg ? "MAX TRACKER" : "LIVE ONLY"));
 }
 
 static void create_tracker_page(int index) {
@@ -253,14 +253,14 @@ static void create_tracker_page(int index) {
   lv_label_set_text(p->title, codex ? "CODEX" : "CLAUDE");
   p->caption = text(p->tile, &plex_ui_21, lv_color_hex(0xB2B7C0), 20, 43, 200, 26);
   lv_label_set_text(p->caption, "MAX TRACKER");
-  p->status = text(p->tile, &plex_ui_14, lv_color_hex(0x9298A2), 212, 18, 88, 20);
+  p->status = text(p->tile, &plex_ui_14, lv_color_hex(0x9298A2), 196, 18, 104, 20);
   lv_obj_set_style_text_align(p->status, LV_TEXT_ALIGN_RIGHT, 0);
   for (int col = 0; col < TK_MT_WEEKS; ++col) {
     for (int row = 0; row < 7; ++row) {
       int cell_index = col * 7 + row;
       lv_obj_t *cell = lv_obj_create(p->tile);
       lv_obj_remove_style_all(cell);
-      lv_obj_set_pos(cell, 32 + col * 13, 73 + row * 8);
+      lv_obj_set_pos(cell, 32 + col * 13, 63 + row * 8);
       lv_obj_set_size(cell, 11, 6);
       lv_obj_set_style_radius(cell, 2, 0);
       ui.tracker_cells[tracker_index][cell_index] = cell;
@@ -268,9 +268,9 @@ static void create_tracker_page(int index) {
   }
   for (int i = 0; i < 4; ++i) {
     int x = 20 + i * 75;
-    lv_obj_t *caption = text(p->tile, &plex_ui_12, lv_color_hex(0x9298A2), x, 137, 70, 16);
+    lv_obj_t *caption = text(p->tile, &plex_ui_12, lv_color_hex(0x9298A2), x, 126, 70, 16);
     lv_label_set_text(caption, captions[i]);
-    ui.tracker_stats[tracker_index][i] = text(p->tile, &plex_ui_21, lv_color_white(), x, 151, 70, 22);
+    ui.tracker_stats[tracker_index][i] = text(p->tile, &plex_ui_21, lv_color_white(), x, 140, 70, 24);
     lv_label_set_text(ui.tracker_stats[tracker_index][i], "-");
   }
   render_tracker(tracker_index);
