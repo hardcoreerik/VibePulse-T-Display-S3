@@ -27,8 +27,10 @@ from typing import Any, Callable, Dict, Optional
 
 LEASE_S = 120.0
 # Attention is a signal, not a todo list: even a genuine unanswered chat ages
-# out after two hours rather than remaining indefinitely actionable.
-WAITING_LEASE_S = 2 * 60 * 60
+# A Claude "needs you" record is only useful while it is recent.  The
+# T-Display-S3 is a live dashboard, so expire an unchanged prompt after
+# fifteen minutes instead of advertising a long-finished session for hours.
+WAITING_LEASE_S = 15 * 60
 POLL_S = 0.5
 PUBLIC_JOB_LIMIT = 4
 TRACKED_JOB_LIMIT = 16

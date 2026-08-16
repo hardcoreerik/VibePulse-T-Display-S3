@@ -99,14 +99,14 @@ static void render_quota(int index, const char *name, const tk_limit *limit,
   mini_page *p = &ui.pages[index];
   char value[12], reset[16], status[24];
   if (limit->has_pct) snprintf(value, sizeof value, "%.0f", limit->pct);
-  else snprintf(value, sizeof value, "-");
+  else snprintf(value, sizeof value, "NO USAGE");
   format_reset_time(limit, reset, sizeof reset);
   lv_label_set_text(p->title, name);
-  lv_obj_set_style_text_font(p->percent, &plex_num_50, 0);
-  lv_obj_set_pos(p->percent, 20, 54);
-  lv_obj_set_size(p->percent, 170, 52);
+  lv_obj_set_style_text_font(p->percent, limit->has_pct ? &plex_num_50 : &plex_ui_21, 0);
+  lv_obj_set_pos(p->percent, 20, limit->has_pct ? 54 : 66);
+  lv_obj_set_size(p->percent, 200, limit->has_pct ? 52 : 28);
   lv_obj_set_pos(p->percent_suffix, 130, 76);
-  lv_label_set_text(p->caption, "WEEKLY LIMIT");
+  lv_label_set_text(p->caption, limit->has_pct ? "WEEKLY LIMIT" : "CLAUDE USAGE");
   lv_obj_remove_flag(p->caption, LV_OBJ_FLAG_HIDDEN);
   lv_label_set_text(p->percent, value);
   lv_label_set_text(p->percent_suffix, limit->has_pct ? "%" : "");
@@ -121,7 +121,7 @@ static void render_quota(int index, const char *name, const tk_limit *limit,
   lv_label_set_text(p->detail, reset);
   if (limit->has_delta) snprintf(status, sizeof status, "%+.0f%% TODAY", limit->delta_pct);
   else snprintf(status, sizeof status, "%s", ui.stale || limit->stale ? "CACHED" : "TO RESET");
-  lv_label_set_text(p->status, status);
+  lv_label_set_text(p->status, limit->has_pct ? status : "ADD USAGE DATA");
 }
 
 static const char *state_name(tk_agent_state state) {
@@ -149,13 +149,26 @@ static void render_activity(void) {
     }
   }
   lv_label_set_text(p->title, provider);
-  lv_obj_set_style_text_font(p->percent, &plex_text_32, 0);
-  lv_obj_set_pos(p->percent, 20, 63);
-  lv_obj_set_size(p->percent, 190, 38);
+  /* plex_text_32 is a deliberately limited display face.  Agent states and
+   * remote project names need the complete UI font or they show replacement
+   * boxes on the T-Display-S3. */
+  lv_obj_set_style_text_font(p->percent, &plex_ui_21, 0);
+  lv_obj_set_pos(p->percent, 20, 57);
+  lv_obj_set_size(p->percent, 280, 28);
   lv_label_set_text(p->percent, job ? state_name(job->state) : "-");
   lv_label_set_text(p->percent_suffix, "");
   lv_obj_add_flag(p->caption, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(p->track, LV_OBJ_FLAG_HIDDEN);
   lv_obj_set_width(p->fill, 0);
+  /* Both fields are intentionally full-width.  The old quota-page positions
+   * (x=214, width=90) caused project text to overpaint model/status text. */
+  lv_obj_set_style_text_font(p->detail, &plex_ui_14, 0);
+  lv_obj_set_pos(p->detail, 20, 98);
+  lv_obj_set_size(p->detail, 280, 20);
+  lv_obj_set_style_text_align(p->detail, LV_TEXT_ALIGN_LEFT, 0);
+  lv_obj_set_pos(p->status, 20, 124);
+  lv_obj_set_size(p->status, 280, 18);
+  lv_obj_set_style_text_align(p->status, LV_TEXT_ALIGN_LEFT, 0);
   lv_label_set_text(p->detail, job && job->project[0] ? job->project : "NO PROJECT DATA");
   lv_label_set_text(p->status, job && job->has_model ? job->model : "AGENT STATUS");
 }
@@ -217,7 +230,8 @@ static void render_tracker(int tracker_index) {
   lv_label_set_text(ui.tracker_stats[tracker_index][2], value);
   snprintf(value, sizeof value, "%d", src->max_days);
   lv_label_set_text(ui.tracker_stats[tracker_index][3], value);
-  lv_label_set_text(p->status, src->has_plan ? src->plan_label : "MAX TRACKER");
+  lv_label_set_text(p->status, src->has_plan ? src->plan_label :
+                    (src->has_avg ? "MAX TRACKER" : "NO HISTORY"));
 }
 
 static void create_tracker_page(int index) {

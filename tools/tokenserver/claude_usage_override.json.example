@@ -1,0 +1,10 @@
+{
+  "_instructions": "Copy this file to claude_usage_override.json. Enter the percentage and reset values shown in your own Claude usage page. Use null for a value you do not know. Do not put passwords, cookies, OAuth tokens, or API keys here.",
+  "claudeSessionPct": null,
+  "claudeSessionResetMin": null,
+  "claudeWeekPct": null,
+  "claudeWeekResetMin": null,
+  "claudeModelWeekPct": null,
+  "claudeModelWeekResetMin": null,
+  "claudeModelWeekLabel": "CLAUDE · WEEK"
+}
