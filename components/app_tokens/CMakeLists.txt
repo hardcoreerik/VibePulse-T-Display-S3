@@ -6,8 +6,7 @@ set(TK_AGENT_MONITOR_SRCS "agent_monitor_policy.c" "agent_completion_policy.c"
                           "agent_monitor.c" "agent_assets.c")
 if(TORGET_TDISPLAY_S3)
   set(TK_USAGE_SCREEN_SRC "usage_screen_mini.c")
-  # The compact target still uses VibePulse's real Claude/Codex artwork.
-  set(TK_AGENT_MONITOR_SRCS "agent_monitor_policy.c" "agent_assets.c")
+  list(APPEND TK_USAGE_SCREEN_SRC "tdisplay_cfg.c")
 endif()
 
 idf_component_register(
@@ -26,3 +25,6 @@ idf_component_register(
   PRIV_REQUIRES torget_net esp_http_client)
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE LV_LVGL_H_INCLUDE_SIMPLE)
+if(TORGET_TDISPLAY_S3)
+  target_compile_definitions(${COMPONENT_LIB} PUBLIC TORGET_TDISPLAY_S3)
+endif()

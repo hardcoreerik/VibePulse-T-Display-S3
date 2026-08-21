@@ -12,6 +12,9 @@
 #include "agent_status_parse.h"
 #include "app_tokens.h"
 #include "secrets.h"
+#ifdef TORGET_TDISPLAY_S3
+#include "tdisplay_cfg.h"
+#endif
 #include "torget.h"
 
 static const char *TAG = "agent-net";
@@ -19,7 +22,7 @@ static const char *TAG = "agent-net";
 #define AGENT_POLL_MS 1000
 #define AGENT_LOG_EVERY_MS 30000
 
-#ifdef TK_AGENT_STATUS_URL
+#if defined(TK_AGENT_STATUS_URL) || defined(TORGET_TDISPLAY_S3)
 
 static tk_agent_http_response response;
 
@@ -96,8 +99,18 @@ static void agent_net_task(void *arg) {
   torget_net_wait();
   vTaskDelay(pdMS_TO_TICKS(3000));
 
+#ifdef TORGET_TDISPLAY_S3
+  static char url[160];
+  while (!tk_tdisplay_make_url(url, sizeof url, "/api/agent-status")) {
+    vTaskDelay(pdMS_TO_TICKS(5000));
+  }
+#endif
   esp_http_client_config_t cfg = {
+#ifdef TORGET_TDISPLAY_S3
+    .url = url,
+#else
     .url = TK_AGENT_STATUS_URL,
+#endif
     .timeout_ms = 2500,
     .keep_alive_enable = true,
     .keep_alive_idle = 5,

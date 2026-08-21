@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Install VibePulse Mini on T-Display-S3</title>
+  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      background: #050608;
+      color: #f4f6f8;
+    }
+    main {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 48px 20px 80px;
+    }
+    h1 { font-size: 28px; letter-spacing: 0.08em; margin: 0 0 8px; }
+    .sub { color: #9298A2; margin-bottom: 28px; }
+    label { display: block; font-size: 12px; letter-spacing: 0.12em; color: #9298A2; margin: 16px 0 6px; }
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      background: #111318;
+      border: 1px solid #303238;
+      color: #fff;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+    .hint { color: #9298A2; font-size: 13px; line-height: 1.5; margin-top: 28px; }
+    .row { margin-top: 28px; }
+    esp-web-install-button { --esp-tools-button-color: #6F78FF; --esp-tools-button-text-color: #fff; }
+    a { color: #6F78FF; }
+    code { color: #D97757; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>VIBEPULSE MINI</h1>
+    <p class="sub">One-click install for the LilyGO T-Display-S3. Chrome, Edge, or Firefox on a desktop. Hold BOOT, tap RST, then connect.</p>
+
+    <label for="ssid">2.4 GHz WI-FI NAME</label>
+    <input id="ssid" autocomplete="off" maxlength="31" placeholder="your network">
+
+    <label for="pass">WI-FI PASSWORD</label>
+    <input id="pass" type="password" maxlength="63" placeholder="required for most networks">
+
+    <label for="host">TOKEN SERVER</label>
+    <input id="host" maxlength="80" placeholder="http://192.168.1.10:8737" value="http://192.168.1.10:8737">
+
+    <div class="row">
+      <esp-web-install-button id="install" manifest="./manifest.json">
+        <button slot="activate">Connect and install</button>
+        <span slot="unsupported">Use Chrome, Edge, or Firefox on a computer with USB.</span>
+        <span slot="not-allowed">Open this page over HTTPS, then try again.</span>
+      </esp-web-install-button>
+    </div>
+
+    <p class="hint">
+      After flashing: start <code>python tools/tokenserver/tokenserver.py</code> on the same 2.4 GHz LAN.
+      GPIO14 pages forward, BOOT pages back. Long-press a quota page for session detail.
+      A NEEDS YOU alert dismisses with a short press.
+    </p>
+    <p class="hint">
+      Firmware and source:
+      <a href="https://github.com/hardcoreerik/VibePulse-T-Display-S3">github.com/hardcoreerik/VibePulse-T-Display-S3</a>
+    </p>
+  </main>
+  <script>
+    const SSID = "VPSSID______________________________";
+    const PASS = "VPPASS__________________________________________________________";
+    const URL  = "http://VIBEPULSE-HOST:8737________________________________________";
+
+    function encode(text, template) {
+      const out = new Uint8Array(template.length);
+      out.fill(0);
+      const src = new TextEncoder().encode(text);
+      const n = Math.min(src.length, template.length - 1);
+      out.set(src.subarray(0, n));
+      return { template, bytes: out };
+    }
+
+    function patch(buffer, fields) {
+      const bytes = new Uint8Array(buffer);
+      const hay = new TextDecoder("latin1").decode(bytes);
+      for (const field of fields) {
+        const at = hay.indexOf(field.template);
+        if (at < 0) throw new Error("Firmware placeholder missing: " + field.template.slice(0, 12));
+        if (hay.indexOf(field.template, at + 1) >= 0) {
+          throw new Error("Placeholder is not unique: " + field.template.slice(0, 12));
+        }
+        bytes.set(field.bytes, at);
+      }
+      return bytes.buffer;
+    }
+
+    async function patchedManifest() {
+      const ssid = document.getElementById("ssid").value.trim();
+      const pass = document.getElementById("pass").value;
+      let host = document.getElementById("host").value.trim().replace(/\/+$/, "");
+      if (!ssid) throw new Error("Enter the 2.4 GHz Wi-Fi name.");
+      if (!host) throw new Error("Enter the token server URL.");
+      if (!/^https?:\/\//i.test(host)) host = "http://" + host;
+
+      const firmware = await fetch("./vibepulse-tdisplay-s3.bin");
+      if (!firmware.ok) throw new Error("Could not download firmware.");
+      const patched = patch(await firmware.arrayBuffer(), [
+        encode(ssid, SSID),
+        encode(pass, PASS),
+        encode(host, URL),
+      ]);
+      const blob = new Blob([patched], { type: "application/octet-stream" });
+      const firmwareUrl = URL.createObjectURL(blob);
+      const manifest = {
+        name: "VibePulse Mini",
+        version: "0.1.0",
+        new_install_prompt_erase: true,
+        new_install_improv_wait_time: 0,
+        builds: [{ chipFamily: "ESP32-S3", parts: [{ path: firmwareUrl, offset: 0 }] }],
+      };
+      return URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: "application/json" }));
+    }
+
+    const button = document.getElementById("install");
+    button.addEventListener("click", async (event) => {
+      try {
+        button.manifest = await patchedManifest();
+      } catch (err) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        alert(err.message);
+      }
+    }, true);
+  </script>
+</body>
+</html>

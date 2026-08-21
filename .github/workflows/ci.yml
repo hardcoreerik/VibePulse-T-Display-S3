@@ -56,4 +56,4 @@ jobs:
         with:
           esp_idf_version: v5.5.2
           target: esp32s3
-          command: idf.py build
+          command: idf.py -D TORGET_TDISPLAY_S3=ON build

@@ -1,6 +1,7 @@
 #ifndef AGENT_MONITOR_H
 #define AGENT_MONITOR_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "lvgl.h"
@@ -13,5 +14,6 @@ void tk_agent_monitor_tick(int64_t now_us);
 
 /* Deterministisk simulatorväg; glastrycket går genom samma köfunktion. */
 void tk_agent_monitor_dismiss_current(void);
+bool tk_agent_monitor_visible(void);
 
 #endif

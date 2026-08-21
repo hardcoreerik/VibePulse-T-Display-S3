@@ -7,6 +7,11 @@ on the [releases page](https://github.com/niclasvestlund-YT/vibepulse/releases).
 
 ### Added
 
+- T-Display-S3 Mini now has the original VibePulse strip: Claude model week,
+  Claude all-models week, Codex week, burn rate, both Max Trackers, GitHub,
+  and the value multiple, plus compact NEEDS YOU / DONE / ERROR overlays.
+- One-click browser installer for LilyGO T-Display-S3 (ESP Web Tools) that
+  patches 2.4 GHz Wi-Fi and the token-server URL into factory firmware.
 - The completion alert finally pulses. The accent outline and icon ring
   breathe (full → 39 % → full, ease-in-out, four 1200 ms cycles filling the
   PULSE phase exactly) and then rest; text and the provider icon stay solid

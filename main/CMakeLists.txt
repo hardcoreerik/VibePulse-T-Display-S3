@@ -55,3 +55,6 @@ endif()
 # fontfiler bygger i simulatorn utan flaggan eftersom FetchContent råkar ge
 # föräldrakatalogen. Definitionen är den officiella vägen ut ur den skillnaden.
 target_compile_definitions(${COMPONENT_LIB} PRIVATE LV_LVGL_H_INCLUDE_SIMPLE)
+if(TORGET_TDISPLAY_S3)
+  target_compile_definitions(${COMPONENT_LIB} PRIVATE TORGET_TDISPLAY_S3)
+endif()

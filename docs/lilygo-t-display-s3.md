@@ -1,9 +1,37 @@
 # VibePulse Mini on LilyGO T-Display-S3
 
 This fork adds an explicit `TORGET_TDISPLAY_S3` build target for the regular
-T-Display-S3. It is a compact, landscape 320 x 170 VibePulse view. GPIO14
-moves forward between Claude, Codex, and the most relevant agent; GPIO0 (the
-BOOT button) moves back once the device has started.
+T-Display-S3. It is a compact, landscape 320 x 170 VibePulse view with the
+same screens as the original 480 x 480 panel:
+
+1. Claude model week
+2. Claude all-models week
+3. Codex week
+4. Burn rate
+5. Max Tracker (Claude)
+6. Max Tracker (Codex)
+7. GitHub
+8. Value multiple
+
+NEEDS YOU / DONE / ERROR take over the whole 320 x 170 glass; a short press
+dismisses them. GPIO14 pages forward; GPIO0 (BOOT) pages back after boot.
+Long-press a quota page for session detail.
+
+## One-click install
+
+You do not need ESP-IDF on the computer that flashes the board.
+
+1. Open the [web installer](https://hardcoreerik.github.io/VibePulse-T-Display-S3/).
+2. Enter the 2.4 GHz Wi-Fi name and password, and the token server URL
+   (`http://<this-pc-lan-ip>:8737`).
+3. Hold **BOOT**, tap **RST**, release **BOOT**, then click Connect and install.
+   The board is on COM3 on the maintainer desk; other machines will show a
+   different port in the browser picker.
+4. On the PC, start `python tools/tokenserver/tokenserver.py`.
+
+The installer patches Wi-Fi and the token-server URL into a factory firmware
+image in the browser. No `secrets.h` is required for that path. A local
+`secrets.h` still wins when you build from source.
 
 The board wiring and display behaviour follow LilyGO's official
 [T-Display-S3 Quick Start](https://wiki.lilygo.cc/products/t-display-series/t-display-s3/quick-start.html)

@@ -19,6 +19,9 @@
 #ifdef ESP_PLATFORM
 #include "secrets.h"
 #endif
+#ifdef TORGET_TDISPLAY_S3
+#include "tdisplay_cfg.h"
+#endif
 #include "max_tracker_parse.h"
 #include "tokens_parse.h"
 #include "torget.h"
@@ -29,11 +32,22 @@ static const char *TAG = "tokens";
 #define FETCH_EVERY_MS 30000
 #define BODY_MAX 2048
 
-#ifdef TK_TOKENS_URL
+#if defined(TK_TOKENS_URL) || defined(TORGET_TDISPLAY_S3)
+
+static const char *tokens_url(char *buf, size_t n) {
+#ifdef TORGET_TDISPLAY_S3
+  return tk_tdisplay_make_url(buf, n, "/api/tokens") ? buf : NULL;
+#else
+  (void)buf;
+  (void)n;
+  return TK_TOKENS_URL;
+#endif
+}
 
 static void net_task(void *arg) {
   (void)arg;
   static char body[BODY_MAX]; /* på .bss, inte på taskens stack */
+  char url[160];
   size_t len;
 
   torget_net_wait();
@@ -46,7 +60,8 @@ static void net_task(void *arg) {
 
   for (;;) {
     tk_tokens t;
-    if (torget_http_get(TK_TOKENS_URL, body, sizeof body, &len)
+    const char *url_p = tokens_url(url, sizeof url);
+    if (url_p && torget_http_get(url_p, body, sizeof body, &len)
         && tk_tokens_parse(body, len, &t)) {
       torget_ui_lock();
       tokens_apply(&t);
@@ -67,7 +82,7 @@ static void net_task(void *arg) {
   }
 }
 
-#endif /* TK_TOKENS_URL */
+#endif /* TK_TOKENS_URL || TORGET_TDISPLAY_S3 */
 
 /*
  * Max Tracker-hämttasken — samma glance-mönster som net_task ovan men eget
@@ -84,11 +99,22 @@ static void net_task(void *arg) {
 #define MT_FETCH_EVERY_MS 300000
 #define MT_BODY_MAX 8192
 
-#ifdef TK_MAX_TRACKER_URL
+#if defined(TK_MAX_TRACKER_URL) || defined(TORGET_TDISPLAY_S3)
+
+static const char *max_tracker_url(char *buf, size_t n) {
+#ifdef TORGET_TDISPLAY_S3
+  return tk_tdisplay_make_url(buf, n, "/api/max-tracker") ? buf : NULL;
+#else
+  (void)buf;
+  (void)n;
+  return TK_MAX_TRACKER_URL;
+#endif
+}
 
 static void max_tracker_task(void *arg) {
   (void)arg;
   static char body[MT_BODY_MAX]; /* på .bss, inte på taskens stack */
+  char url[160];
   size_t len;
 
   torget_net_wait();
@@ -100,7 +126,8 @@ static void max_tracker_task(void *arg) {
 
   for (;;) {
     tk_max_tracker t;
-    if (torget_http_get(TK_MAX_TRACKER_URL, body, sizeof body, &len)
+    const char *url_p = max_tracker_url(url, sizeof url);
+    if (url_p && torget_http_get(url_p, body, sizeof body, &len)
         && tk_max_tracker_parse(body, len, &t)) {
       torget_ui_lock();
       tokens_apply_max_tracker(&t);
@@ -117,16 +144,16 @@ static void max_tracker_task(void *arg) {
   }
 }
 
-#endif /* TK_MAX_TRACKER_URL */
+#endif /* TK_MAX_TRACKER_URL || TORGET_TDISPLAY_S3 */
 
 void tokens_net_start(void) {
-#ifdef TK_TOKENS_URL
+#if defined(TK_TOKENS_URL) || defined(TORGET_TDISPLAY_S3)
   xTaskCreate(net_task, "tokens", 6144, NULL, 5, NULL);
 #else
   ESP_LOGW(TAG, "TK_TOKENS_URL saknas i secrets.h — VibePulse visar streck");
 #endif
 
-#ifdef TK_MAX_TRACKER_URL
+#if defined(TK_MAX_TRACKER_URL) || defined(TORGET_TDISPLAY_S3)
   xTaskCreate(max_tracker_task, "max-tracker", 6144, NULL, 5, NULL);
 #else
   ESP_LOGW(TAG,

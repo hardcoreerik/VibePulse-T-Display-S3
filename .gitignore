@@ -9,6 +9,7 @@ __pycache__/
 
 # Byggträd är regenererbara.
 build/
+build-tdisplay*/
 sim/build*/
 managed_components/
 sdkconfig

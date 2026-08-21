@@ -22,9 +22,14 @@
 #include "nvs_flash.h"
 #include "lvgl.h"
 
+#include "agent_monitor.h"
 #include "app_tokens.h"
+#include "app_tokens_config.h"
+#include "project_star_popup.h"
 #include "secrets.h"
+#include "tdisplay_cfg.h"
 #include "torget.h"
+#include "usage_screen.h"
 
 #define LCD_W 320
 #define LCD_H 170
@@ -38,7 +43,7 @@
 #define LCD_RD GPIO_NUM_9
 #define KEY_BOOT GPIO_NUM_0
 #define KEY_NEXT GPIO_NUM_14
-#define PAGE_COUNT 6
+#define PAGE_COUNT TK_USAGE_SCREEN_VIEWS
 #define LONG_PRESS_MS 650
 
 static const char *TAG = "vibepulse-s3";
@@ -97,9 +102,16 @@ static void wifi_start(void) {
   ESP_ERROR_CHECK(esp_event_handler_instance_register(
       IP_EVENT, IP_EVENT_STA_GOT_IP, wifi_event, NULL, NULL));
   wifi_config_t station = {0};
-  strlcpy((char *)station.sta.ssid, TG_WIFI_SSID, sizeof station.sta.ssid);
-  strlcpy((char *)station.sta.password, TG_WIFI_PASS, sizeof station.sta.password);
-  station.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+  const char *ssid = tk_tdisplay_wifi_ssid();
+  const char *pass = tk_tdisplay_wifi_pass();
+  if (!ssid[0]) {
+    ESP_LOGW(TAG, "Wi-Fi not configured; flash via the installer or secrets.h");
+    return;
+  }
+  strlcpy((char *)station.sta.ssid, ssid, sizeof station.sta.ssid);
+  strlcpy((char *)station.sta.password, pass, sizeof station.sta.password);
+  station.sta.threshold.authmode =
+      pass[0] ? WIFI_AUTH_WPA2_PSK : WIFI_AUTH_OPEN;
   ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
   ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &station));
   ESP_ERROR_CHECK(esp_wifi_start());
@@ -201,7 +213,8 @@ static void key_task(void *arg) {
       if (detail_open) {
         tokens_hide_detail();
         detail_open = false;
-      } else if (page == 0 || page == 1 || page == 3) {
+      } else if (page == VIEW_CLAUDE_FABLE || page == VIEW_CLAUDE_ALL ||
+                 page == VIEW_CODEX_WEEKLY) {
         tokens_show_detail(page);
         detail_open = true;
       }
@@ -213,7 +226,8 @@ static void key_task(void *arg) {
       if (detail_open) {
         tokens_hide_detail();
         detail_open = false;
-      } else if (page == 0 || page == 1 || page == 3) {
+      } else if (page == VIEW_CLAUDE_FABLE || page == VIEW_CLAUDE_ALL ||
+                 page == VIEW_CODEX_WEEKLY) {
         tokens_show_detail(page);
         detail_open = true;
       }
@@ -221,7 +235,13 @@ static void key_task(void *arg) {
     }
     if (!next_down && next_was_down && !next_long) {
       torget_ui_lock();
-      if (detail_open) {
+      if (tk_agent_monitor_visible()) {
+        tk_agent_monitor_dismiss_current();
+#if TK_GITHUB_NOTIFICATIONS_ENABLED
+      } else if (tk_project_star_popup_visible()) {
+        tk_project_star_popup_dismiss();
+#endif
+      } else if (detail_open) {
         tokens_hide_detail();
         detail_open = false;
       } else {
@@ -233,7 +253,13 @@ static void key_task(void *arg) {
     }
     if (!boot_down && boot_was_down && !boot_long) {
       torget_ui_lock();
-      if (detail_open) {
+      if (tk_agent_monitor_visible()) {
+        tk_agent_monitor_dismiss_current();
+#if TK_GITHUB_NOTIFICATIONS_ENABLED
+      } else if (tk_project_star_popup_visible()) {
+        tk_project_star_popup_dismiss();
+#endif
+      } else if (detail_open) {
         tokens_hide_detail();
         detail_open = false;
       } else {

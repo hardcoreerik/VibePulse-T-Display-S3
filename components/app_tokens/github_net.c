@@ -9,6 +9,9 @@
 
 #include "app_tokens.h"
 #include "app_tokens_config.h"
+#ifdef TORGET_TDISPLAY_S3
+#include "tdisplay_cfg.h"
+#endif
 #include "github_status_parse.h"
 #include "torget.h"
 #include "torget_http.h"
@@ -18,12 +21,14 @@ static const char *TAG = "github-net";
 #define GITHUB_FETCH_EVERY_MS 30000
 #define GITHUB_BODY_MAX 768
 
-#if defined(TK_GITHUB_URL) && \
-    (TK_GITHUB_SCREEN_ENABLED || TK_GITHUB_NOTIFICATIONS_ENABLED)
+#if defined(TORGET_TDISPLAY_S3) || \
+    (defined(TK_GITHUB_URL) && \
+     (TK_GITHUB_SCREEN_ENABLED || TK_GITHUB_NOTIFICATIONS_ENABLED))
 
 static void github_net_task(void *arg) {
   (void)arg;
   static char body[GITHUB_BODY_MAX];
+  char url[160];
   size_t len;
 
   torget_net_wait();
@@ -33,7 +38,14 @@ static void github_net_task(void *arg) {
 
   for (;;) {
     tk_github_status status;
-    if (torget_http_get(TK_GITHUB_URL, body, sizeof body, &len) &&
+#ifdef TORGET_TDISPLAY_S3
+    const char *url_p = tk_tdisplay_make_url(url, sizeof url, "/api/github")
+                            ? url : NULL;
+#else
+    const char *url_p = TK_GITHUB_URL;
+    (void)url;
+#endif
+    if (url_p && torget_http_get(url_p, body, sizeof body, &len) &&
         tk_github_status_parse(body, len, &status)) {
       torget_ui_lock();
       tokens_apply_github(&status);

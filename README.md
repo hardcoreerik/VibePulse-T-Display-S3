@@ -1,5 +1,7 @@
 # VibePulse
 
+**LilyGO T-Display-S3 fork.** [One-click install](https://hardcoreerik.github.io/VibePulse-T-Display-S3/) flashes a 320×170 VibePulse Mini with the original screens (Claude model week, Claude all-models, Codex, burn rate, both Max Trackers, GitHub, value, and NEEDS YOU). Board docs: [docs/lilygo-t-display-s3.md](docs/lilygo-t-display-s3.md).
+
 [![CI](https://github.com/niclasvestlund-YT/vibepulse/actions/workflows/ci.yml/badge.svg)](https://github.com/niclasvestlund-YT/vibepulse/actions/workflows/ci.yml)
 
 ![VibePulse: quota, a NEEDS YOU alert, and the Max Tracker heatmap](docs/img/hero.png)

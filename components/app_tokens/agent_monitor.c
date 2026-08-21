@@ -197,11 +197,20 @@ static void completion_event(lv_event_t *event) {
   render_completion(mon.queue.last_now_ms);
 }
 
+#ifdef TORGET_TDISPLAY_S3
+extern const lv_font_t plex_ui_21;
+extern const lv_font_t plex_ui_12;
+#endif
+
 static void create_completion(lv_obj_t *app_root) {
   completion_view *view = &mon.completion;
   view->root = bare(app_root);
   lv_obj_set_pos(view->root, 0, 0);
+#ifdef TORGET_TDISPLAY_S3
+  lv_obj_set_size(view->root, 320, 170);
+#else
   lv_obj_set_size(view->root, VP_SCREEN_W, VP_SCREEN_H);
+#endif
   lv_obj_set_style_bg_opa(view->root, LV_OPA_COVER, 0);
   lv_obj_set_style_bg_color(view->root, COL_BLACK, 0);
   lv_obj_add_flag(view->root, LV_OBJ_FLAG_CLICKABLE);
@@ -210,27 +219,78 @@ static void create_completion(lv_obj_t *app_root) {
                       LV_EVENT_LONG_PRESSED, NULL);
 
   view->outline = bare(view->root);
+#ifdef TORGET_TDISPLAY_S3
+  lv_obj_set_pos(view->outline, 4, 4);
+  lv_obj_set_size(view->outline, 312, 162);
+  lv_obj_set_style_border_width(view->outline, 3, 0);
+  lv_obj_set_style_radius(view->outline, 12, 0);
+#else
   lv_obj_set_pos(view->outline, 8, 8);
   lv_obj_set_size(view->outline, 464, 464);
-  lv_obj_set_style_bg_opa(view->outline, LV_OPA_TRANSP, 0);
-  lv_obj_set_style_border_opa(view->outline, LV_OPA_COVER, 0);
   lv_obj_set_style_border_width(view->outline, 6, 0);
   lv_obj_set_style_radius(view->outline, 36, 0);
+#endif
+  lv_obj_set_style_bg_opa(view->outline, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_border_opa(view->outline, LV_OPA_COVER, 0);
 
+#ifdef TORGET_TDISPLAY_S3
+  view->provider = label(view->root, &plex_ui_12, COL_WHITE);
+  lv_obj_set_pos(view->provider, 12, 10);
+  lv_obj_set_size(view->provider, 296, 16);
+#else
   view->provider = label(view->root, &plex_attention_18, COL_WHITE);
   lv_obj_set_pos(view->provider, 20, 31);
   lv_obj_set_size(view->provider, 440, 25);
+#endif
   lv_obj_set_style_text_align(view->provider, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_set_style_text_letter_space(view->provider, 3, 0);
 
   view->icon_ring = bare(view->root);
+#ifdef TORGET_TDISPLAY_S3
+  lv_obj_set_pos(view->icon_ring, 136, 28);
+  lv_obj_set_size(view->icon_ring, 48, 48);
+  lv_obj_set_style_border_width(view->icon_ring, 2, 0);
+#else
   lv_obj_set_pos(view->icon_ring, 172, 77);
   lv_obj_set_size(view->icon_ring, 136, 136);
+  lv_obj_set_style_border_width(view->icon_ring, 3, 0);
+#endif
   lv_obj_set_style_bg_opa(view->icon_ring, LV_OPA_TRANSP, 0);
   lv_obj_set_style_border_opa(view->icon_ring, LV_OPA_COVER, 0);
-  lv_obj_set_style_border_width(view->icon_ring, 3, 0);
   lv_obj_set_style_radius(view->icon_ring, LV_RADIUS_CIRCLE, 0);
 
+#ifdef TORGET_TDISPLAY_S3
+  lv_obj_t *claude_group = bare(view->root);
+  lv_obj_set_pos(claude_group, 140, 32);
+  lv_obj_set_size(claude_group, 40, 40);
+  view->claude_icon = lv_image_create(claude_group);
+  lv_image_set_src(view->claude_icon, &tk_img_claude_32);
+  lv_obj_set_size(view->claude_icon, 40, 40);
+  lv_image_set_inner_align(view->claude_icon, LV_IMAGE_ALIGN_STRETCH);
+  lv_obj_set_pos(view->claude_icon, 0, 0);
+  lv_obj_set_style_image_recolor(view->claude_icon, COL_CLAUDE, 0);
+  lv_obj_set_style_image_recolor_opa(view->claude_icon, LV_OPA_COVER, 0);
+  view->codex_icon = lv_image_create(view->root);
+  lv_image_set_src(view->codex_icon, &tk_img_codex_32);
+  lv_obj_set_pos(view->codex_icon, 140, 32);
+  lv_obj_set_size(view->codex_icon, 40, 40);
+  lv_image_set_inner_align(view->codex_icon, LV_IMAGE_ALIGN_STRETCH);
+  lv_obj_remove_flag(view->codex_icon, LV_OBJ_FLAG_CLICKABLE);
+
+  view->title = label(view->root, &plex_ui_21, COL_WHITE);
+  lv_obj_set_pos(view->title, 12, 80);
+  lv_obj_set_size(view->title, 296, 26);
+  view->project = label(view->root, &plex_ui_14, COL_WHITE);
+  lv_obj_set_pos(view->project, 12, 106);
+  lv_obj_set_size(view->project, 296, 18);
+  view->detail = label(view->root, &plex_ui_12, COL_MUTED);
+  lv_obj_set_pos(view->detail, 12, 124);
+  lv_obj_set_size(view->detail, 296, 16);
+  view->dismiss = label(view->root, &plex_ui_12, COL_MUTED);
+  lv_obj_set_pos(view->dismiss, 12, 144);
+  lv_obj_set_size(view->dismiss, 296, 16);
+  lv_label_set_text(view->dismiss, "PRESS TO DISMISS");
+#else
   lv_obj_t *claude_group = bare(view->root);
   lv_obj_set_pos(claude_group, 184, 89);
   lv_obj_set_size(claude_group, 112, 112);
@@ -247,26 +307,24 @@ static void create_completion(lv_obj_t *app_root) {
   view->title = label(view->root, &plex_attention_52, COL_WHITE);
   lv_obj_set_pos(view->title, 14, 246);
   lv_obj_set_size(view->title, 452, 68);
-  lv_obj_set_style_text_align(view->title, LV_TEXT_ALIGN_CENTER, 0);
-
   view->project = label(view->root, &plex_attention_25, COL_WHITE);
   lv_obj_set_pos(view->project, 20, 321);
   lv_obj_set_size(view->project, 440, 34);
-  lv_obj_set_style_text_align(view->project, LV_TEXT_ALIGN_CENTER, 0);
-  lv_obj_set_style_text_letter_space(view->project, 2, 0);
-
   view->detail = label(view->root, &plex_ui_14, COL_MUTED);
   lv_obj_set_pos(view->detail, 20, 365);
   lv_obj_set_size(view->detail, 440, 25);
-  lv_obj_set_style_text_align(view->detail, LV_TEXT_ALIGN_CENTER, 0);
-  lv_obj_set_style_text_letter_space(view->detail, 2, 0);
-
   view->dismiss = label(view->root, &plex_ui_14, COL_MUTED);
   lv_obj_set_pos(view->dismiss, 20, 430);
   lv_obj_set_size(view->dismiss, 440, 26);
+  lv_label_set_text(view->dismiss, "TAP TO DISMISS");
+#endif
+  lv_obj_set_style_text_align(view->title, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_set_style_text_align(view->project, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_set_style_text_letter_space(view->project, 2, 0);
+  lv_obj_set_style_text_align(view->detail, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_set_style_text_letter_space(view->detail, 2, 0);
   lv_obj_set_style_text_align(view->dismiss, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_set_style_text_letter_space(view->dismiss, 2, 0);
-  lv_label_set_text(view->dismiss, "TAP TO DISMISS");
 
   lv_obj_add_flag(view->root, LV_OBJ_FLAG_HIDDEN);
 }
@@ -310,4 +368,9 @@ void tk_agent_monitor_tick(int64_t now_us) {
 void tk_agent_monitor_dismiss_current(void) {
   tk_completion_queue_dismiss(&mon.queue);
   render_completion(mon.queue.last_now_ms);
+}
+
+bool tk_agent_monitor_visible(void) {
+  return mon.completion.root &&
+         !lv_obj_has_flag(mon.completion.root, LV_OBJ_FLAG_HIDDEN);
 }

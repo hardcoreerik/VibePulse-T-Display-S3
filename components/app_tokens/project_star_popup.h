@@ -12,5 +12,6 @@ bool tk_project_star_popup_show(const tk_project_star_event *event,
                                int64_t now_us);
 void tk_project_star_popup_tick(int64_t now_us);
 bool tk_project_star_popup_visible(void);
+void tk_project_star_popup_dismiss(void);
 
 #endif

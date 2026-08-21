@@ -1,0 +1,86 @@
+name: T-Display-S3 firmware
+
+on:
+  push:
+    branches: ['agent/lilygo-t-display-s3', 'main']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: tdisplay-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build T-Display-S3 firmware
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Factory secrets (no private Wi-Fi)
+        run: cp secrets.h.example secrets.h
+      - name: Build with ESP-IDF 5.5
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v5.5.2
+          target: esp32s3
+          command: idf.py -D TORGET_TDISPLAY_S3=ON build merge-bin
+      - name: Stage installer artifacts
+        run: |
+          mkdir -p dist/install
+          cp install/index.html install/manifest.json dist/install/
+          if [ -f build/merged-binary.bin ]; then
+            cp build/merged-binary.bin dist/install/vibepulse-tdisplay-s3.bin
+          else
+            ls -la build
+            find build -name '*merged*' -o -name 'torget.bin' | head
+            exit 1
+          fi
+          cp build/torget.bin dist/torget.bin
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tdisplay-s3-installer
+          path: dist
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: tdisplay-s3-installer
+          path: dist
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: VibePulse Mini ${{ github.ref_name }} for T-Display-S3
+          generate_release_notes: true
+          files: |
+            dist/install/vibepulse-tdisplay-s3.bin
+            dist/torget.bin
+            dist/install/index.html
+            dist/install/manifest.json
+          body: |
+            One-click install for the LilyGO T-Display-S3.
+
+            1. Open the [web installer](https://hardcoreerik.github.io/VibePulse-T-Display-S3/).
+            2. Enter 2.4 GHz Wi-Fi and your token server URL (`http://<pc-ip>:8737`).
+            3. Hold **BOOT**, tap **RST**, click Connect and install.
+            4. On the PC: `python tools/tokenserver/tokenserver.py`
+
+            The board shows the original VibePulse screens in 320×170: Claude model week, Claude all-models week, Codex week, burn rate, both Max Trackers, GitHub, and value, plus NEEDS YOU overlays.
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/install
+      - id: pages
+        uses: actions/deploy-pages@v4
