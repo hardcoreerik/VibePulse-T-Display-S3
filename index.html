@@ -41,7 +41,7 @@
 <body>
   <main>
     <h1>VIBEPULSE MINI</h1>
-    <p class="sub">One-click install for the LilyGO T-Display-S3. Chrome, Edge, or Firefox on a desktop. Hold BOOT, tap RST, then connect.</p>
+    <p class="sub">VibePulse Mini 0.8.0 for the LilyGO T-Display-S3 — Claude, Codex, and Grok. Chrome, Edge, or Firefox on a desktop. Hold BOOT, tap RST, then connect.</p>
 
     <label for="ssid">2.4 GHz WI-FI NAME</label>
     <input id="ssid" autocomplete="off" maxlength="31" placeholder="your network">
@@ -63,7 +63,9 @@
     <p class="hint">
       After flashing: start <code>python tools/tokenserver/tokenserver.py</code> on the same 2.4 GHz LAN.
       GPIO14 pages forward, BOOT pages back. Long-press a quota page for session detail.
-      A NEEDS YOU alert dismisses with a short press.
+      A NEEDS YOU alert dismisses with a short press. Grok shows today/month token volume
+      from local <code>~/.grok</code> sessions; weekly Grok percent stays dashed until xAI
+      publishes a quota API.
     </p>
     <p class="hint">
       Firmware and source:
@@ -117,7 +119,7 @@
       const firmwareUrl = URL.createObjectURL(blob);
       const manifest = {
         name: "VibePulse Mini",
-        version: "0.1.0",
+        version: "0.8.0",
         new_install_prompt_erase: true,
         new_install_improv_wait_time: 0,
         builds: [{ chipFamily: "ESP32-S3", parts: [{ path: firmwareUrl, offset: 0 }] }],

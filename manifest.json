@@ -1,6 +1,6 @@
 {
   "name": "VibePulse Mini",
-  "version": "0.1.0",
+  "version": "0.8.0",
   "new_install_prompt_erase": true,
   "new_install_improv_wait_time": 0,
   "builds": [
