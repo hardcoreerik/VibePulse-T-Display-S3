@@ -40,15 +40,24 @@ static bool seen(const tk_completion_queue *queue, int provider,
 }
 
 static uint8_t bounded_job_count(const tk_agent_provider_status *provider) {
+  if (!provider) return 0;
   return provider->job_count > TK_AGENT_JOBS_MAX
              ? TK_AGENT_JOBS_MAX : provider->job_count;
+}
+
+static const tk_agent_provider_status *provider_status(
+    const tk_agent_snapshot *snapshot, int provider) {
+  if (!snapshot) return NULL;
+  if (provider == TK_AGENT_PROVIDER_CLAUDE) return &snapshot->claude;
+  if (provider == TK_AGENT_PROVIDER_CODEX) return &snapshot->codex;
+  if (provider == TK_AGENT_PROVIDER_GROK) return &snapshot->grok;
+  return NULL;
 }
 
 static bool snapshot_contains_attention(const tk_agent_snapshot *snapshot,
                                         int provider, const char *event_id) {
   const tk_agent_provider_status *status =
-      provider == TK_AGENT_PROVIDER_CLAUDE ? &snapshot->claude :
-      provider == TK_AGENT_PROVIDER_CODEX ? &snapshot->codex : NULL;
+      provider_status(snapshot, provider);
   if (!status) return false;
   for (uint8_t i = 0; i < bounded_job_count(status); i++) {
     const tk_agent_status *job = &status->jobs[i];
@@ -91,19 +100,17 @@ static bool remember(tk_completion_queue *queue,
 
 static uint8_t total_active(const tk_agent_snapshot *snapshot) {
   uint16_t total = (uint16_t)snapshot->claude.active_count +
-                   (uint16_t)snapshot->codex.active_count;
+                   (uint16_t)snapshot->codex.active_count +
+                   (uint16_t)snapshot->grok.active_count;
   return total > UINT8_MAX ? UINT8_MAX : (uint8_t)total;
 }
 
 static uint8_t same_state_count(const tk_agent_snapshot *snapshot,
                                 int provider, tk_agent_state state) {
   uint16_t count = 0;
-  const tk_agent_provider_status *providers[TK_AGENT_PROVIDER_COUNT] = {
-      &snapshot->claude,
-      &snapshot->codex,
-  };
-  for (uint8_t i = 0; i < bounded_job_count(providers[provider]); i++) {
-    const tk_agent_status *job = &providers[provider]->jobs[i];
+  const tk_agent_provider_status *status = provider_status(snapshot, provider);
+  for (uint8_t i = 0; i < bounded_job_count(status); i++) {
+    const tk_agent_status *job = &status->jobs[i];
     if (job->event_id[0] && job->state == state) count++;
   }
   return count > UINT8_MAX ? UINT8_MAX : (uint8_t)count;
@@ -179,6 +186,7 @@ void tk_completion_queue_apply(tk_completion_queue *queue,
   const tk_agent_provider_status *providers[TK_AGENT_PROVIDER_COUNT] = {
       &snapshot->claude,
       &snapshot->codex,
+      &snapshot->grok,
   };
   for (int provider = 0; provider < TK_AGENT_PROVIDER_COUNT; provider++) {
     for (uint8_t i = 0; i < bounded_job_count(providers[provider]); i++) {

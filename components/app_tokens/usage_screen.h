@@ -16,7 +16,7 @@
  * The T-Display-S3 port always keeps GitHub in the strip so the compact
  * device has the same screens as the original panel. */
 #ifdef TORGET_TDISPLAY_S3
-#define TK_USAGE_SCREEN_VIEWS 8
+#define TK_USAGE_SCREEN_VIEWS 10
 #else
 #define TK_USAGE_SCREEN_VIEWS (6 + TK_GITHUB_SCREEN_ENABLED + 1)
 #endif

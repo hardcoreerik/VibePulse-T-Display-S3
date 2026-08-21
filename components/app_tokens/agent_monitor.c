@@ -118,10 +118,12 @@ static void render_completion(uint64_t now_ms) {
   }
 
   int provider = event->provider;
-  lv_color_t accent = provider == TK_AGENT_PROVIDER_CLAUDE
-                          ? COL_CLAUDE : COL_CODEX;
-  const char *provider_name = provider == TK_AGENT_PROVIDER_CLAUDE
-                                  ? "CLAUDE" : "CODEX";
+  lv_color_t accent = provider == TK_AGENT_PROVIDER_CLAUDE ? COL_CLAUDE :
+                      provider == TK_AGENT_PROVIDER_GROK ? lv_color_hex(0x33E1ED)
+                                                         : COL_CODEX;
+  const char *provider_name = provider == TK_AGENT_PROVIDER_CLAUDE ? "CLAUDE" :
+                              provider == TK_AGENT_PROVIDER_GROK ? "GROK"
+                                                                : "CODEX";
   lv_obj_remove_flag(mon.completion.root, LV_OBJ_FLAG_HIDDEN);
   lv_obj_move_foreground(mon.completion.root);
   lv_label_set_text(mon.completion.provider, provider_name);
@@ -153,8 +155,9 @@ static void render_completion(uint64_t now_ms) {
                (unsigned)event->same_state_count);
     } else {
       snprintf(detail, sizeof detail, "%s",
-               provider == TK_AGENT_PROVIDER_CLAUDE
-                   ? "CLAUDE IS WAITING" : "CODEX IS WAITING");
+               provider == TK_AGENT_PROVIDER_CLAUDE ? "CLAUDE IS WAITING" :
+               provider == TK_AGENT_PROVIDER_GROK ? "GROK IS WAITING" :
+                                                    "CODEX IS WAITING");
     }
   } else if (event->state == TK_AGENT_ERROR) {
     title = "ERROR";
@@ -163,16 +166,18 @@ static void render_completion(uint64_t now_ms) {
                (unsigned)event->same_state_count);
     } else {
       snprintf(detail, sizeof detail, "%s",
-               provider == TK_AGENT_PROVIDER_CLAUDE
-                   ? "CLAUDE NEEDS ATTENTION" : "CODEX NEEDS ATTENTION");
+               provider == TK_AGENT_PROVIDER_CLAUDE ? "CLAUDE NEEDS ATTENTION" :
+               provider == TK_AGENT_PROVIDER_GROK ? "GROK NEEDS ATTENTION" :
+                                                    "CODEX NEEDS ATTENTION");
     }
   } else if (event->same_state_count > 1) {
     snprintf(detail, sizeof detail, "%u AGENTS FINISHED",
              (unsigned)event->same_state_count);
   } else {
     snprintf(detail, sizeof detail, "%s",
-             provider == TK_AGENT_PROVIDER_CLAUDE
-                 ? "CLAUDE FINISHED" : "CODEX FINISHED");
+             provider == TK_AGENT_PROVIDER_CLAUDE ? "CLAUDE FINISHED" :
+             provider == TK_AGENT_PROVIDER_GROK ? "GROK FINISHED" :
+                                                  "CODEX FINISHED");
   }
   lv_label_set_text(mon.completion.title, title);
   lv_label_set_text(mon.completion.detail, detail);
@@ -345,10 +350,10 @@ void tk_agent_monitor_apply(const tk_agent_snapshot *snapshot,
                             now_us > 0 ? (uint64_t)now_us / 1000ULL : 0);
   render_completion(now_us > 0 ? (uint64_t)now_us / 1000ULL : 0);
 
-  const tk_agent_provider_status *providers[2] = {
-      &snapshot->claude, &snapshot->codex,
+  const tk_agent_provider_status *providers[TK_AGENT_PROVIDER_COUNT] = {
+      &snapshot->claude, &snapshot->codex, &snapshot->grok,
   };
-  for (int provider = 0; provider < 2; provider++) {
+  for (int provider = 0; provider < TK_AGENT_PROVIDER_COUNT; provider++) {
     for (uint8_t i = 0; i < providers[provider]->job_count; i++) {
       if (tk_agent_monitor_should_keep_awake(&providers[provider]->jobs[i],
                                              "", 0)) {

@@ -16,6 +16,7 @@
 typedef enum {
   USAGE_PROVIDER_CLAUDE,
   USAGE_PROVIDER_CODEX,
+  USAGE_PROVIDER_GROK,
 } usage_provider;
 
 typedef enum {
@@ -48,6 +49,7 @@ typedef enum {
   USAGE_QUOTA_CLAUDE_MODEL,
   USAGE_QUOTA_CLAUDE_ALL,
   USAGE_QUOTA_CODEX_WEEK,
+  USAGE_QUOTA_GROK_WEEK,
 } usage_quota_scope;
 
 typedef struct {
@@ -86,7 +88,7 @@ typedef struct {
 
 typedef struct {
   int row_count;
-  usage_forecast_row_view rows[2];
+  usage_forecast_row_view rows[3];
 } usage_forecast_page_view;
 
 #define USAGE_VALUE_TEXT_CAP 40

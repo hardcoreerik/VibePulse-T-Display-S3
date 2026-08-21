@@ -65,6 +65,12 @@ assert "esp_http_client_cleanup(" not in source, (
 assert re.search(r"static\s+tk_agent_http_response\s+response\s*;", source), (
     "the 1536-byte response state must live in static .bss"
 )
+assert re.search(r"static\s+tk_agent_snapshot\s+snapshot\s*;", source), (
+    "the parsed snapshot must live in static .bss, not on the 8 KB task stack"
+)
+assert re.search(
+    r'xTaskCreate\(agent_net_task,\s*"agent-status",\s*8192', source
+), "agent-status task stack must stay at least 8192 after the grok provider"
 assert re.search(
     r"torget_ui_lock\(\);\s*tokens_apply_agent_status\(&snapshot\);\s*"
     r"torget_ui_unlock\(\);",

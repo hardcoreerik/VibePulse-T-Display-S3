@@ -9,12 +9,13 @@
 #define TK_AGENT_PROJECT_CAP 17
 #define TK_AGENT_MODEL_CAP 25
 #define TK_AGENT_EFFORT_CAP 13
-#define TK_AGENT_PROVIDER_COUNT 2
+#define TK_AGENT_PROVIDER_COUNT 3
 #define TK_AGENT_JOBS_MAX 4
 
 typedef enum {
   TK_AGENT_PROVIDER_CLAUDE = 0,
   TK_AGENT_PROVIDER_CODEX = 1,
+  TK_AGENT_PROVIDER_GROK = 2,
 } tk_agent_provider;
 
 typedef enum {
@@ -63,6 +64,7 @@ typedef struct {
   uint32_t seq;
   tk_agent_provider_status claude;
   tk_agent_provider_status codex;
+  tk_agent_provider_status grok;
 } tk_agent_snapshot;
 
 static inline const tk_agent_status *tk_agent_provider_primary(

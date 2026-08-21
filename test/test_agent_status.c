@@ -248,7 +248,7 @@ int main(void) {
 
   check("provider-enum har stabil ordning",
         TK_AGENT_PROVIDER_CLAUDE == 0 && TK_AGENT_PROVIDER_CODEX == 1 &&
-        TK_AGENT_PROVIDER_COUNT == 2 && TK_AGENT_JOBS_MAX == 4);
+        TK_AGENT_PROVIDER_COUNT == 3 && TK_AGENT_JOBS_MAX == 4);
 
   if (failures == 0) {
     printf("OK: alla agentstatus-v2-tester gröna\n");

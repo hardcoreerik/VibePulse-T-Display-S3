@@ -47,6 +47,9 @@ static const char *const root_required_keys[] = {
 static const char *const agents_required_keys[] = {
     "claude", "codex", NULL,
 };
+static const char *const agents_allowed_keys[] = {
+    "claude", "codex", "grok", NULL,
+};
 
 static const char *const provider_required_keys[] = {
     "active_count", "jobs", NULL,
@@ -534,12 +537,17 @@ bool tk_agent_status_parse(const char *json, size_t len,
 
   const cJSON *agents = cJSON_GetObjectItemCaseSensitive(root, "agents");
   if (!required_keys_once(agents, agents_required_keys) ||
-      !allowed_keys_once(agents, agents_required_keys)) goto done;
+      !allowed_keys_once(agents, agents_allowed_keys)) goto done;
   if (!provider_member(json, len, root, agents, "claude", &next.claude)) {
     goto done;
   }
   if (!provider_member(json, len, root, agents, "codex", &next.codex)) {
     goto done;
+  }
+  if (cJSON_GetObjectItemCaseSensitive(agents, "grok")) {
+    if (!provider_member(json, len, root, agents, "grok", &next.grok)) {
+      goto done;
+    }
   }
 
   *out = next;

@@ -207,6 +207,11 @@ static bool known_top_level_key(const char *key) {
       "codexForecastPctAtReset", "codexForecastPaceFactor",
       "codexForecastAt", "codexForecastOffsetMin",
       "otaAvailableVersion", "value",
+      "grokWeekPct", "grokWeekResetMin", "grokSessionPct",
+      "grokSessionResetMin", "grokWeekStale", "grokDayTokens",
+      "grokMonthTokens", "grokModel", "grokForecastState",
+      "grokForecastPctAtReset", "grokForecastPaceFactor",
+      "grokForecastAt", "grokForecastOffsetMin",
   };
   for (size_t index = 0; index < sizeof keys / sizeof keys[0]; index++) {
     if (strcmp(key, keys[index]) == 0) return true;
@@ -449,6 +454,24 @@ bool tk_tokens_parse(const char *json, size_t len, tk_tokens *out) {
   optional_value(root, trust_optional_strings, &t.value);
   optional_forecast(root, "codex", trust_optional_strings,
                     &t.codex_forecast);
+  if (cJSON_GetObjectItemCaseSensitive(root, "grokWeekPct")) {
+    if (!limit_pair(root, "grokWeekPct", "grokWeekResetMin", &t.grok_week))
+      goto done;
+    (void)optional_stale(root, "grokWeekStale", &t.grok_week);
+  }
+  if (cJSON_GetObjectItemCaseSensitive(root, "grokSessionPct") &&
+      cJSON_GetObjectItemCaseSensitive(root, "grokSessionResetMin")) {
+    if (!limit_pair(root, "grokSessionPct", "grokSessionResetMin",
+                    &t.grok_session))
+      goto done;
+  }
+  optional_nonnegative_number(root, "grokDayTokens", 1e15,
+                              &t.grok_day_tokens, &t.has_grok_day_tokens);
+  optional_nonnegative_number(root, "grokMonthTokens", 1e15,
+                              &t.grok_month_tokens, &t.has_grok_month_tokens);
+  optional_label(root, trust_optional_strings, "grokModel", t.grok_model,
+                 sizeof t.grok_model, &t.has_grok_model);
+  optional_forecast(root, "grok", trust_optional_strings, &t.grok_forecast);
 
   /* Inget på den här mätaren kan ärligt vara negativt — ett minustecken är
    * en lögn med ett stavfel (samma regel som sv_group_ll). */

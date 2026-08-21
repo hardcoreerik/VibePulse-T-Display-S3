@@ -5,13 +5,30 @@ on the [releases page](https://github.com/niclasvestlund-YT/vibepulse/releases).
 
 ## Unreleased
 
+## v0.8.0 — 2026-08-20
+
+Grok as a third provider on VibePulse Mini, plus the boot/crash fixes that
+kept the T-Display-S3 from showing live data.
+
 ### Added
 
 - T-Display-S3 Mini now has the original VibePulse strip: Claude model week,
-  Claude all-models week, Codex week, burn rate, both Max Trackers, GitHub,
-  and the value multiple, plus compact NEEDS YOU / DONE / ERROR overlays.
+  Claude all-models week, Codex week, Grok today/month tokens, burn rate,
+  Claude/Codex/Grok Max Trackers, GitHub, and the value multiple, plus compact
+  NEEDS YOU / DONE / ERROR overlays.
 - One-click browser installer for LilyGO T-Display-S3 (ESP Web Tools) that
   patches 2.4 GHz Wi-Fi and the token-server URL into factory firmware.
+- Grok Build usage from local `~/.grok` sessions (day/month tokens, model,
+  live agent, Max Tracker volume). Weekly Grok percent stays dashed until
+  xAI publishes a comparable quota API — never invented numbers.
+
+### Fixed
+
+- Mini white screen after adding the third tracker: 420 LVGL heatmap cells
+  tripped the task watchdog. Heatmaps now draw like the 480×480 panel
+  (one widget, rects in `LV_EVENT_DRAW_MAIN`).
+- Reboot before first data: Grok overflowed the `agent-status` task stack,
+  then `bounded_job_count` NULL-dereferenced a two-slot provider array.
 - The completion alert finally pulses. The accent outline and icon ring
   breathe (full → 39 % → full, ease-in-out, four 1200 ms cycles filling the
   PULSE phase exactly) and then rest; text and the provider icon stay solid

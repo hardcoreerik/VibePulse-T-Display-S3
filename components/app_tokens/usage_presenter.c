@@ -133,6 +133,11 @@ void usage_presenter_build_quota_page(const tk_tokens *tokens,
       build_card(&out->quota, USAGE_CARD_ALL_WEEK,
                  "WEEKLY · ALL MODELS", &tokens->claude_week);
       break;
+    case USAGE_QUOTA_GROK_WEEK:
+      out->provider = USAGE_PROVIDER_GROK;
+      build_card(&out->quota, USAGE_CARD_ALL_WEEK, "GROK BUILD",
+                 &tokens->grok_week);
+      break;
     case USAGE_QUOTA_CODEX_WEEK:
     default:
       out->provider = USAGE_PROVIDER_CODEX;
@@ -395,6 +400,13 @@ void usage_presenter_build_value(const tk_tokens *tokens,
   }
 }
 
+static void format_compact_tokens(char *buf, size_t cap, double tokens) {
+  if (!buf || cap == 0) return;
+  if (tokens >= 1000000.0) snprintf(buf, cap, "%.1fM", tokens / 1e6);
+  else if (tokens >= 1000.0) snprintf(buf, cap, "%.0fK", tokens / 1000.0);
+  else snprintf(buf, cap, "%.0f", tokens);
+}
+
 void usage_presenter_build_forecasts(const tk_tokens *tokens,
                                      usage_forecast_page_view *out) {
   if (!tokens || !out) return;
@@ -406,4 +418,26 @@ void usage_presenter_build_forecasts(const tk_tokens *tokens,
                      "CODEX · WEEKLY", &tokens->codex_week,
                      &tokens->codex_forecast);
   out->row_count = 2;
+  if (tokens->grok_week.has_pct) {
+    build_forecast_row(&out->rows[2], USAGE_PROVIDER_GROK,
+                       "GROK BUILD", &tokens->grok_week,
+                       &tokens->grok_forecast);
+    out->row_count = 3;
+  } else if (tokens->has_grok_day_tokens) {
+    usage_forecast_row_view *row = &out->rows[2];
+    char today[12];
+    format_compact_tokens(today, sizeof today, tokens->grok_day_tokens);
+    row->provider = USAGE_PROVIDER_GROK;
+    row->visible = 1;
+    snprintf(row->label, sizeof row->label, "GROK BUILD");
+    snprintf(row->headline, sizeof row->headline, "TODAY %s", today);
+    if (tokens->has_grok_month_tokens) {
+      char month[12];
+      format_compact_tokens(month, sizeof month, tokens->grok_month_tokens);
+      snprintf(row->detail, sizeof row->detail, "MONTH %s · NO WEEK %%", month);
+    } else {
+      snprintf(row->detail, sizeof row->detail, "NO WEEKLY QUOTA API");
+    }
+    out->row_count = 3;
+  }
 }

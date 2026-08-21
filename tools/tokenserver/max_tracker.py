@@ -57,6 +57,7 @@ else:  # direktkörning: python3 tools/tokenserver/max_tracker.py
 
 
 PROVIDERS: tuple[str, ...] = ("claude", "codex")
+EXTRA_PROVIDERS: tuple[str, ...] = ("grok",)
 WINDOW_WEEKS = 20
 WINDOW_DAYS = WINDOW_WEEKS * 7
 AGGREGATE_MAX = 999
@@ -289,7 +290,10 @@ def build_payload(state: dict, today: str,
     window_week_keys = _window_week_keys(today, WINDOW_WEEKS)
     this_week = week_key(today)
 
-    for provider in PROVIDERS:
+    emit = list(PROVIDERS)
+    if (state.get("grok") or {}).get("days"):
+        emit.append("grok")
+    for provider in emit:
         provider_state = state.get(provider) or {}
         days = provider_state.get("days") or {}
         weeks_maxed = provider_state.get("weeks") or {}
@@ -478,7 +482,7 @@ class MaxTrackerStore:
         self.claude_root = Path(claude_root)
         self._lock = threading.RLock()
         self._state = {provider: {"days": {}, "weeks": {}}
-                       for provider in PROVIDERS}
+                       for provider in PROVIDERS + EXTRA_PROVIDERS}
         # Keyed by inode alone -- NEVER by path: a path under
         # ~/.claude/projects encodes the project name, which the privacy
         # contract forbids writing to disk. See _advance_one_file. Each
@@ -542,6 +546,28 @@ class MaxTrackerStore:
         current = day.get("pct")
         if current is None or rounded > current:
             day["pct"] = rounded
+
+    def set_volume(self, provider: str, date_str: str, tokens: int) -> None:
+        """Replace a day's raw volume with an already-summed total.
+
+        Grok glance numbers are totals from ``~/.grok`` session files, not
+        incremental log lines. Feeding that total through
+        :meth:`observe_volume` on every poll would stack the same day.
+        """
+        if provider not in self._state:
+            return
+        if (not isinstance(tokens, (int, float)) or isinstance(tokens, bool)
+                or not math.isfinite(tokens) or tokens <= 0):
+            return
+        try:
+            date.fromisoformat(date_str)
+        except (TypeError, ValueError):
+            return
+        with self._lock:
+            day = self._state[provider]["days"].setdefault(date_str, {})
+            day["act"] = True
+            day["vol"] = int(tokens)
+            day.pop("lvl", None)
 
     def observe_volume(self, provider: str, date_str: str, tokens: int) -> None:
         """Add ``tokens`` of raw activity to ``date_str`` and mark it active.
@@ -1059,7 +1085,7 @@ class MaxTrackerStore:
                     },
                     "weeks": dict(self._state[provider]["weeks"]),
                 }
-                for provider in PROVIDERS
+                for provider in PROVIDERS + EXTRA_PROVIDERS
             }
         state["stale"] = False
         return build_payload(state, today, plans)
@@ -1070,7 +1096,7 @@ class MaxTrackerStore:
         anchor = date.today() if today is None else date.fromisoformat(today)
         cutoff = anchor - timedelta(days=self.RETENTION_DAYS)
         week_cutoff = cutoff - timedelta(days=7)
-        for provider in PROVIDERS:
+        for provider in PROVIDERS + EXTRA_PROVIDERS:
             days = self._state[provider]["days"]
             for day in list(days):
                 try:

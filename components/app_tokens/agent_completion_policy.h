@@ -6,7 +6,7 @@
 
 #include "agent_status.h"
 
-#define TK_COMPLETION_QUEUE_CAP 8
+#define TK_COMPLETION_QUEUE_CAP 16
 #define TK_COMPLETION_SEEN_CAP 16
 /* 45 s puls (beslut 2026-08-14): 4,8 s missades i praktiken — den som
  * tittar bort en halvminut ska fortfarande motas av ett ANDANDES larm.

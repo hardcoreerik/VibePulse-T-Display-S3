@@ -59,6 +59,7 @@ if __package__:
     from .agent_status import AgentStatusService
     from .codex_rollout import codex_rollout_rate_limits, observation_timestamp
     from .github_monitor import GitHubMonitor, disabled_snapshot, normalize_repo
+    from .grok_usage import GrokUsage
     from .max_tracker import MaxTrackerStore
     from .quota_cache import CachedQuota, QuotaCache
     from .usage_history import Forecast, UsageHistory
@@ -67,6 +68,7 @@ else:  # direktkörning: python3 tools/tokenserver/tokenserver.py
     from agent_status import AgentStatusService
     from codex_rollout import codex_rollout_rate_limits, observation_timestamp
     from github_monitor import GitHubMonitor, disabled_snapshot, normalize_repo
+    from grok_usage import GrokUsage
     from max_tracker import MaxTrackerStore
     from quota_cache import CachedQuota, QuotaCache
     from usage_history import Forecast, UsageHistory
@@ -1983,8 +1985,44 @@ def get_snapshot(projects_dir: Path, history=None, now_ts=None,
     # OTA-annonsen rider på kvotpollen: noll ny infrastruktur, och enheten
     # avgör själv (mot sin körande version) om notisen ska visas.
     result["otaAvailableVersion"] = _ota_available_version()
+    grok = _get_grok_usage().snapshot()
+    result["grokWeekPct"] = None
+    result["grokWeekResetMin"] = None
+    result["grokSessionPct"] = None
+    result["grokSessionResetMin"] = None
+    result["grokWeekStale"] = False
+    result["grokDayTokens"] = int(grok.get("dayTokens") or 0)
+    result["grokMonthTokens"] = int(grok.get("monthTokens") or 0)
+    if grok.get("model"):
+        result["grokModel"] = grok["model"]
+    if max_tracker_store is not None:
+        for day, tokens in (grok.get("byDay") or {}).items():
+            if isinstance(tokens, int) and tokens > 0:
+                max_tracker_store.set_volume("grok", day, tokens)
+        _mark_max_tracker_dirty(max_tracker_store)
     result["v"] = 2
     return result
+
+
+_grok_usage = None
+
+
+def _get_grok_usage():
+    global _grok_usage
+    if _grok_usage is None:
+        _grok_usage = GrokUsage()
+    return _grok_usage
+
+
+def _run_grok_agent_poll(status_service, stop):
+    while not stop.wait(1.0):
+        try:
+            snap = _get_grok_usage().snapshot()
+            event = snap.get("event")
+            if event is not None:
+                status_service._store.apply("grok", event)
+        except Exception:
+            log.exception("grok agent poll failed")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -2270,6 +2308,13 @@ def main():
     status_service.poll_once()
     status_service.start()
     Handler.agent_status = status_service
+    grok_stop = threading.Event()
+    threading.Thread(
+        target=_run_grok_agent_poll,
+        args=(status_service, grok_stop),
+        name="grok-agent-poll",
+        daemon=True,
+    ).start()
 
     max_tracker_store = MaxTrackerStore(
         STATE_DIR / "max-tracker.json",

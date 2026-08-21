@@ -186,7 +186,7 @@ static bool has_duplicate_key(const cJSON *node, const char *const *keys,
 }
 
 static const char *const top_level_keys[] = {
-    "v", "weeks", "stale", "codingStreakDays", "claude", "codex",
+    "v", "weeks", "stale", "codingStreakDays", "claude", "codex", "grok",
 };
 
 static const char *const provider_keys[] = {
@@ -287,6 +287,10 @@ bool tk_max_tracker_parse(const char *json, size_t len, tk_max_tracker *out) {
 
   bool ok = false;
   tk_max_tracker t = {0};
+  for (int i = 0; i < TK_MT_DAYS; i++) {
+    t.grok.days[i].pct = -1;
+    t.grok.days[i].lvl = -1;
+  }
   double v = 0, weeks = 0;
   raw_json_string_scan strings = {0};
   if (!scan_raw_json_strings(json, len, &strings) || strings.nul_key ||
@@ -315,6 +319,10 @@ bool tk_max_tracker_parse(const char *json, size_t len, tk_max_tracker *out) {
   const cJSON *codex = cJSON_GetObjectItemCaseSensitive(root, "codex");
   if (!parse_provider(claude, trust_strings, &t.claude)) goto done;
   if (!parse_provider(codex, trust_strings, &t.codex)) goto done;
+  {
+    const cJSON *grok = cJSON_GetObjectItemCaseSensitive(root, "grok");
+    if (grok && !parse_provider(grok, trust_strings, &t.grok)) goto done;
+  }
 
   *out = t;
   ok = true;

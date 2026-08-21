@@ -75,4 +75,11 @@ jobs:
             3. Hold **BOOT**, tap **RST**, click Connect and install.
             4. On the PC: `python tools/tokenserver/tokenserver.py`
 
-            The board shows the original VibePulse screens in 320×170: Claude model week, Claude all-models week, Codex week, burn rate, both Max Trackers, GitHub, and value, plus NEEDS YOU overlays.
+            The board shows the original VibePulse screens in 320×170 plus Grok: Claude model week, Claude all-models week, Codex week, Grok today/month, burn rate, Claude/Codex/Grok Max Trackers, GitHub, and value, plus NEEDS YOU overlays.
+
+            Grok weekly percent stays dashed until xAI publishes a comparable quota API. Token volume comes from local `~/.grok` sessions via the tokenserver — never invented percentages.
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/install
+      - id: pages
+        uses: actions/deploy-pages@v4

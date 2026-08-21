@@ -32,6 +32,7 @@ extern const lv_font_t plex_ui_12;
 #define COL_TRACK lv_color_hex(0x303238)
 #define COL_CLAUDE lv_color_hex(0xD97757)
 #define COL_CODEX lv_color_hex(0x6F78FF)
+#define COL_GROK lv_color_hex(0x33E1ED)
 #define COL_STAR lv_color_hex(0xE3B341)
 #define COL_DOT lv_color_hex(0x41444A)
 #define COL_DOT_ON lv_color_hex(0xCDD2DA)
@@ -63,9 +64,9 @@ typedef struct {
 typedef struct {
   lv_obj_t *tile;
   lv_obj_t *status;
-  lv_obj_t *cells[TK_MT_DAYS];
+  lv_obj_t *grid;
   lv_obj_t *stats[4];
-  bool codex;
+  int kind; /* 0 claude, 1 codex, 2 grok */
 } tracker_page;
 
 typedef struct {
@@ -89,9 +90,9 @@ typedef struct {
 
 static struct {
   lv_obj_t *tiles;
-  quota_page quotas[3];
-  forecast_row forecasts[2];
-  tracker_page trackers[2];
+  quota_page quotas[4];
+  forecast_row forecasts[3];
+  tracker_page trackers[3];
   github_page github;
   value_page value;
   tk_tokens tokens;
@@ -162,11 +163,25 @@ static void create_pager(lv_obj_t *tile, int active) {
   }
 }
 
-static void add_provider_icon(lv_obj_t *tile, bool claude) {
+static void add_provider_icon(lv_obj_t *tile, usage_provider provider) {
+  if (provider == USAGE_PROVIDER_GROK) {
+    lv_obj_t *icon = lv_obj_create(tile);
+    lv_obj_remove_style_all(icon);
+    lv_obj_set_pos(icon, 16, 8);
+    lv_obj_set_size(icon, 32, 32);
+    lv_obj_set_style_bg_color(icon, COL_GROK, 0);
+    lv_obj_set_style_bg_opa(icon, LV_OPA_COVER, 0);
+    lv_obj_set_style_radius(icon, LV_RADIUS_CIRCLE, 0);
+    lv_obj_t *mark = text(icon, &plex_ui_16, lv_color_hex(0x050608), 0, 6, 32, 20);
+    lv_label_set_text(mark, "G");
+    lv_obj_set_style_text_align(mark, LV_TEXT_ALIGN_CENTER, 0);
+    return;
+  }
   lv_obj_t *icon = lv_image_create(tile);
-  lv_image_set_src(icon, claude ? &tk_img_claude_32 : &tk_img_codex_32);
+  lv_image_set_src(icon, provider == USAGE_PROVIDER_CLAUDE ? &tk_img_claude_32
+                                                           : &tk_img_codex_32);
   lv_obj_set_pos(icon, 16, 8);
-  if (claude) {
+  if (provider == USAGE_PROVIDER_CLAUDE) {
     lv_obj_set_style_image_recolor(icon, COL_CLAUDE, 0);
     lv_obj_set_style_image_recolor_opa(icon, LV_OPA_COVER, 0);
   }
@@ -175,18 +190,19 @@ static void add_provider_icon(lv_obj_t *tile, bool claude) {
 static void create_quota_page(quota_page *page, int index,
                               usage_quota_scope scope,
                               usage_provider provider) {
-  bool claude = provider == USAGE_PROVIDER_CLAUDE;
   page->scope = scope;
   page->provider = provider;
   page->tile = new_tile(index);
-  add_provider_icon(page->tile, claude);
+  add_provider_icon(page->tile, provider);
   page->title = text(page->tile, &plex_ui_21, COL_WHITE, 56, 8, 150, 24);
-  lv_label_set_text(page->title, claude ? "CLAUDE" : "CODEX");
+  lv_label_set_text(page->title,
+                    provider == USAGE_PROVIDER_CLAUDE ? "CLAUDE" :
+                    provider == USAGE_PROVIDER_GROK ? "GROK" : "CODEX");
   page->context = text(page->tile, &plex_ui_12, COL_META, 170, 12, 134, 16);
   lv_obj_set_style_text_align(page->context, LV_TEXT_ALIGN_RIGHT, 0);
   lv_label_set_text(page->context, "NO DATA");
   page->caption = text(page->tile, &plex_ui_12, COL_MUTED, 56, 32, 248, 16);
-  page->percent = text(page->tile, &plex_num_50, COL_WHITE, 16, 50, 170, 52);
+  page->percent = text(page->tile, &plex_num_50, COL_WHITE, 16, 50, 200, 52);
   lv_label_set_text(page->percent, "–");
   page->percent_suffix = text(page->tile, &plex_ui_21, COL_WHITE, 128, 72, 24, 24);
   page->track = bare(page->tile);
@@ -197,7 +213,9 @@ static void create_quota_page(quota_page *page, int index,
   lv_obj_set_style_radius(page->track, LV_RADIUS_CIRCLE, 0);
   page->fill = bare(page->track);
   lv_obj_set_size(page->fill, 0, 10);
-  lv_obj_set_style_bg_color(page->fill, claude ? COL_CLAUDE : COL_CODEX, 0);
+  lv_obj_set_style_bg_color(page->fill,
+                            provider == USAGE_PROVIDER_CLAUDE ? COL_CLAUDE :
+                            provider == USAGE_PROVIDER_GROK ? COL_GROK : COL_CODEX, 0);
   lv_obj_set_style_bg_opa(page->fill, LV_OPA_COVER, 0);
   lv_obj_set_style_radius(page->fill, LV_RADIUS_CIRCLE, 0);
   page->detail = text(page->tile, &plex_ui_16, COL_WHITE, 214, 104, 90, 22);
@@ -214,6 +232,8 @@ static void apply_quota(quota_page *page) {
   usage_presenter_build_quota_page(&ui.tokens, page->scope, &view);
   lv_label_set_text(page->caption, view.quota.label);
   bool has = view.quota.has_pct;
+  bool grok_volume = page->provider == USAGE_PROVIDER_GROK &&
+                     ui.tokens.has_grok_day_tokens && !has;
   lv_obj_set_style_text_font(page->percent, has ? &plex_num_50 : &plex_ui_21, 0);
   lv_obj_set_pos(page->percent, 16, has ? 50 : 62);
   if (has) {
@@ -221,59 +241,98 @@ static void apply_quota(quota_page *page) {
     snprintf(number, sizeof number, "%.0f", view.quota.pct);
     lv_label_set_text(page->percent, number);
     lv_label_set_text(page->percent_suffix, "%");
+    int suffix_x = 20 + (int)strlen(number) * 28;
+    lv_obj_set_pos(page->percent_suffix, suffix_x, 72);
     int fill = (int)(TRACK_W * view.quota.pct / 100.0);
     if (fill < 0) fill = 0;
     if (fill > TRACK_W) fill = TRACK_W;
     lv_obj_set_width(page->fill, fill);
+  } else if (grok_volume) {
+    char volume[16];
+    double tokens = ui.tokens.grok_day_tokens;
+    if (tokens >= 1000000.0) snprintf(volume, sizeof volume, "%.1fM", tokens / 1e6);
+    else if (tokens >= 1000.0) snprintf(volume, sizeof volume, "%.0fK", tokens / 1000.0);
+    else snprintf(volume, sizeof volume, "%.0f", tokens);
+    lv_label_set_text(page->percent, volume);
+    lv_label_set_text(page->percent_suffix, "");
+    lv_label_set_text(page->caption, "TODAY TOKENS");
+    lv_obj_set_width(page->fill, 0);
+    if (ui.tokens.has_grok_month_tokens) {
+      char month[16];
+      double month_tokens = ui.tokens.grok_month_tokens;
+      if (month_tokens >= 1000000.0)
+        snprintf(month, sizeof month, "%.1fM", month_tokens / 1e6);
+      else if (month_tokens >= 1000.0)
+        snprintf(month, sizeof month, "%.0fK", month_tokens / 1000.0);
+      else
+        snprintf(month, sizeof month, "%.0f", month_tokens);
+      lv_label_set_text(page->detail, month);
+    }
+    if (ui.tokens.has_grok_model)
+      lv_label_set_text(page->status, ui.tokens.grok_model);
+    else
+      lv_label_set_text(page->status, "LOCAL SESSIONS");
   } else {
-    lv_label_set_text(page->percent, view.quota.pct_text);
+    lv_label_set_text(page->percent, "NO DATA");
     lv_label_set_text(page->percent_suffix, "");
     lv_obj_set_width(page->fill, 0);
   }
-  lv_label_set_text(page->detail,
-                    view.quota.reset_short_text[0] ? view.quota.reset_short_text
-                                                   : "–");
+  if (!grok_volume) {
+    lv_label_set_text(page->detail,
+                      view.quota.reset_short_text[0] ? view.quota.reset_short_text
+                                                     : "–");
+  }
   usage_live_header_view header = {0};
   const tk_agent_provider_status *agent =
-      page->provider == USAGE_PROVIDER_CLAUDE ? &ui.agents.claude
-                                              : &ui.agents.codex;
+      page->provider == USAGE_PROVIDER_CLAUDE ? &ui.agents.claude :
+      page->provider == USAGE_PROVIDER_GROK ? &ui.agents.grok :
+                                              &ui.agents.codex;
   usage_live_build_header(agent, 0, ui.stale, ui.have_agents, &header);
   lv_label_set_text(page->context,
                     usage_presenter_quota_status_text(
-                        ui.have_tokens && has, ui.stale || view.quota.stale,
+                        ui.have_tokens && (has || grok_volume),
+                        ui.stale || view.quota.stale,
                         header.context));
-  if (view.quota.has_delta) lv_label_set_text(page->status, view.quota.delta_text);
-  else lv_label_set_text(page->status, has ? "TO RESET" : "NO DATA");
+  if (grok_volume) {
+    /* month + model already set */
+  } else if (view.quota.has_delta) {
+    lv_label_set_text(page->status, view.quota.delta_text);
+  } else {
+    lv_label_set_text(page->status, has ? "TO RESET" : "NO DATA");
+  }
 }
 
 static void create_burn_rate_page(void) {
-  lv_obj_t *tile = new_tile(VIEW_BURN_RATE);
+  lv_obj_t *tile = new_tile(4);
   lv_obj_t *heading = text(tile, &plex_ui_21, COL_WHITE, 16, 8, 180, 24);
   lv_label_set_text(heading, "BURN RATE");
   lv_obj_t *sub = text(tile, &plex_ui_12, COL_MUTED, 180, 12, 124, 16);
   lv_obj_set_style_text_align(sub, LV_TEXT_ALIGN_RIGHT, 0);
   lv_label_set_text(sub, "WEEKLY FORECAST");
-  for (int i = 0; i < 2; i++) {
-    int y = 36 + i * 58;
+  static const uint32_t row_color[] = {0xD97757, 0x6F78FF, 0x33E1ED};
+  static const char *row_name[] = {"CLAUDE", "CODEX", "GROK"};
+  for (int i = 0; i < 3; i++) {
+    int y = 32 + i * 40;
     forecast_row *row = &ui.forecasts[i];
-    row->label = text(tile, &plex_ui_12, i == 0 ? COL_CLAUDE : COL_CODEX,
-                      16, y, 288, 16);
-    row->headline = text(tile, &plex_ui_21, COL_WHITE, 16, y + 16, 288, 24);
-    row->detail = text(tile, &plex_ui_12, COL_MUTED, 16, y + 40, 288, 16);
-    lv_label_set_text(row->label, i == 0 ? "CLAUDE" : "CODEX");
+    row->label = text(tile, &plex_ui_12, lv_color_hex(row_color[i]),
+                      16, y, 288, 14);
+    row->headline = text(tile, &plex_ui_16, COL_WHITE, 16, y + 14, 288, 18);
+    row->detail = text(tile, &plex_ui_12, COL_MUTED, 180, y + 14, 124, 18);
+    lv_obj_set_style_text_align(row->detail, LV_TEXT_ALIGN_RIGHT, 0);
+    lv_label_set_text(row->label, row_name[i]);
     lv_label_set_text(row->headline, "–");
     lv_label_set_text(row->detail, "NO RELIABLE FORECAST");
   }
-  create_pager(tile, VIEW_BURN_RATE);
+  create_pager(tile, 4);
 }
 
 static void apply_forecasts(void) {
   usage_forecast_page_view view = {0};
   usage_presenter_build_forecasts(&ui.tokens, &view);
-  for (int i = 0; i < 2; i++) {
+  for (int i = 0; i < 3; i++) {
     const usage_forecast_row_view *row = &view.rows[i];
     lv_label_set_text(ui.forecasts[i].label, row->label[0] ? row->label :
-                      (i == 0 ? "CLAUDE" : "CODEX"));
+                      (i == 0 ? "CLAUDE" : i == 1 ? "CODEX" : "GROK"));
     if (!row->visible) {
       lv_label_set_text(ui.forecasts[i].headline, "–");
       lv_label_set_text(ui.forecasts[i].detail, "NO RELIABLE FORECAST");
@@ -284,40 +343,76 @@ static void apply_forecasts(void) {
   }
 }
 
-static lv_color_t tracker_color(bool codex, const tk_mt_day *day) {
+static lv_color_t tracker_color(int kind, const tk_mt_day *day) {
   if (day->pct >= 0) {
-    tk_mt_rgb rgb = tk_mt_cell_rgb(codex, day->pct);
+    tk_mt_rgb rgb = tk_mt_cell_rgb(kind == 1, day->pct);
+    if (kind == 2) return lv_color_hex(day->pct >= 100 ? 0xFF2D1F : 0x33E1ED);
     return lv_color_make(rgb.r, rgb.g, rgb.b);
   }
   if (day->lvl >= 0) {
-    tk_mt_rgb rgb = tk_mt_gray_rgb(day->lvl);
-    return lv_color_make(rgb.r, rgb.g, rgb.b);
+    /* Studio greys vanish on 6 px Mini cells. Lift volume floors per
+     * provider so Claude/Grok activity is visible beside Codex quota. */
+    static const uint32_t claude_vol[] = {0x4A2A24, 0x6E3D34, 0x8F5346};
+    static const uint32_t codex_vol[] = {0x2A2E58, 0x3C447C, 0x535CAD};
+    static const uint32_t grok_vol[] = {0x0E4A4E, 0x147A80, 0x1BA8B0};
+    int lvl = day->lvl;
+    if (lvl > 2) lvl = 2;
+    if (kind == 1) return lv_color_hex(codex_vol[lvl]);
+    if (kind == 2) return lv_color_hex(grok_vol[lvl]);
+    return lv_color_hex(claude_vol[lvl]);
   }
-  return lv_color_hex(0x0C0E13);
+  return lv_color_hex(0x1A1C22);
 }
 
-static void create_tracker_page(tracker_page *page, int index, bool codex) {
+static void tracker_grid_draw(lv_event_t *e) {
+  const tracker_page *page = lv_event_get_user_data(e);
+  lv_layer_t *layer = lv_event_get_layer(e);
+  lv_area_t origin;
+  lv_obj_get_coords(lv_event_get_target(e), &origin);
+  const tk_mt_provider *src = page->kind == 1 ? &ui.tracker.codex :
+                              page->kind == 2 ? &ui.tracker.grok :
+                                                &ui.tracker.claude;
+  for (int i = 0; i < TK_MT_DAYS; i++) {
+    const tk_mt_day *day = &src->days[i];
+    lv_draw_rect_dsc_t dsc;
+    lv_draw_rect_dsc_init(&dsc);
+    dsc.radius = 2;
+    dsc.bg_opa = LV_OPA_COVER;
+    dsc.bg_color = tracker_color(page->kind, day);
+    if (day->pct < 0 && day->lvl < 0) {
+      dsc.border_width = 1;
+      dsc.border_opa = LV_OPA_COVER;
+      dsc.border_color = lv_color_hex(0x343A43);
+    }
+    int col = i / 7;
+    int row = i % 7;
+    lv_area_t cell = {origin.x1 + col * 14, origin.y1 + row * 8,
+                      origin.x1 + col * 14 + 11, origin.y1 + row * 8 + 5};
+    lv_draw_rect(layer, &dsc, &cell);
+  }
+}
+
+static void create_tracker_page(tracker_page *page, int index, int kind) {
   static const char *captions[] = {"STREAK", "MAX WKS", "AVG PEAK", "MAX DAYS"};
-  page->codex = codex;
+  static const char *names[] = {"CLAUDE", "CODEX", "GROK"};
+  page->kind = kind;
   page->tile = new_tile(index);
-  add_provider_icon(page->tile, !codex);
+  add_provider_icon(page->tile, kind == 0 ? USAGE_PROVIDER_CLAUDE :
+                                kind == 2 ? USAGE_PROVIDER_GROK :
+                                            USAGE_PROVIDER_CODEX);
   lv_obj_t *title = text(page->tile, &plex_ui_21, COL_WHITE, 56, 8, 150, 24);
-  lv_label_set_text(title, codex ? "CODEX" : "CLAUDE");
+  lv_label_set_text(title, names[kind]);
   lv_obj_t *caption = text(page->tile, &plex_ui_12, COL_MUTED, 56, 32, 140, 16);
   lv_label_set_text(caption, "MAX TRACKER");
   page->status = text(page->tile, &plex_ui_12, COL_MUTED, 196, 12, 108, 16);
   lv_obj_set_style_text_align(page->status, LV_TEXT_ALIGN_RIGHT, 0);
   lv_label_set_text(page->status, "NO DATA");
-  for (int col = 0; col < TK_MT_WEEKS; ++col) {
-    for (int row = 0; row < 7; ++row) {
-      lv_obj_t *cell = lv_obj_create(page->tile);
-      lv_obj_remove_style_all(cell);
-      lv_obj_set_pos(cell, 16 + col * 14, 50 + row * 8);
-      lv_obj_set_size(cell, 12, 6);
-      lv_obj_set_style_radius(cell, 2, 0);
-      page->cells[col * 7 + row] = cell;
-    }
-  }
+  /* One widget, 140 rects in DRAW_MAIN — 420 lv_obj cells tripped the
+   * task watchdog on boot (white ST7789, main stuck in theme_apply). */
+  page->grid = bare(page->tile);
+  lv_obj_set_pos(page->grid, 16, 50);
+  lv_obj_set_size(page->grid, TK_MT_WEEKS * 14, 7 * 8);
+  lv_obj_add_event_cb(page->grid, tracker_grid_draw, LV_EVENT_DRAW_MAIN, page);
   for (int i = 0; i < 4; ++i) {
     int x = 16 + i * 76;
     lv_obj_t *cap = text(page->tile, &plex_ui_12, COL_MUTED, x, 110, 72, 14);
@@ -329,32 +424,28 @@ static void create_tracker_page(tracker_page *page, int index, bool codex) {
 }
 
 static void apply_tracker(tracker_page *page) {
-  const tk_mt_provider *src = page->codex ? &ui.tracker.codex : &ui.tracker.claude;
-  for (int i = 0; i < TK_MT_DAYS; ++i) {
-    const tk_mt_day *day = &src->days[i];
-    lv_obj_t *cell = page->cells[i];
-    lv_obj_set_style_bg_color(cell, tracker_color(page->codex, day), 0);
-    lv_obj_set_style_bg_opa(cell, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(cell, day->pct < 0 && day->lvl < 0 ? 1 : 0, 0);
-    lv_obj_set_style_border_color(cell, lv_color_hex(0x343A43), 0);
-  }
-  tk_mt_tile tiles[4];
-  tk_mt_tiles(&ui.tracker, page->codex, tiles);
-  for (int i = 0; i < 4; i++) {
-    char value[24];
-    if (tiles[i].unit[0])
-      snprintf(value, sizeof value, "%s%s", tiles[i].value, tiles[i].unit);
-    else
-      snprintf(value, sizeof value, "%s", tiles[i].value);
-    lv_label_set_text(page->stats[i], value);
-  }
+  const tk_mt_provider *src = page->kind == 1 ? &ui.tracker.codex :
+                              page->kind == 2 ? &ui.tracker.grok :
+                                                &ui.tracker.claude;
+  lv_obj_invalidate(page->grid);
+  char value[16];
+  snprintf(value, sizeof value, "%d",
+           ui.tracker.coding_streak_days < 0 ? 0 : ui.tracker.coding_streak_days);
+  lv_label_set_text(page->stats[0], value);
+  snprintf(value, sizeof value, "%d", src->max_weeks);
+  lv_label_set_text(page->stats[1], value);
+  if (src->has_avg) snprintf(value, sizeof value, "%.0f%%", src->avg_peak_pct);
+  else snprintf(value, sizeof value, "-");
+  lv_label_set_text(page->stats[2], value);
+  snprintf(value, sizeof value, "%d", src->max_days);
+  lv_label_set_text(page->stats[3], value);
   lv_label_set_text(page->status, src->has_plan ? src->plan_label :
                     (src->has_avg ? "MAX TRACKER" : "LIVE ONLY"));
 }
 
 static void create_github_page(void) {
   github_page *page = &ui.github;
-  page->tile = new_tile(VIEW_GITHUB);
+  page->tile = new_tile(8);
   lv_obj_t *title = text(page->tile, &plex_ui_21, COL_WHITE, 16, 8, 160, 24);
   lv_label_set_text(title, "GITHUB");
   page->provenance = text(page->tile, &plex_ui_12, COL_MUTED, 180, 12, 124, 16);
@@ -366,7 +457,7 @@ static void create_github_page(void) {
   lv_label_set_text(page->stars, "–");
   page->forks = text(page->tile, &plex_ui_16, COL_META, 16, 118, 288, 22);
   lv_label_set_text(page->forks, "FORKS  –");
-  create_pager(page->tile, VIEW_GITHUB);
+  create_pager(page->tile, 8);
 }
 
 static void apply_github_page(const tk_github_status *status) {
@@ -390,7 +481,7 @@ static void apply_github_page(const tk_github_status *status) {
 
 static void create_value_page(void) {
   value_page *page = &ui.value;
-  page->tile = new_tile(VIEW_VALUE);
+  page->tile = new_tile(9);
   lv_obj_t *title = text(page->tile, &plex_ui_21, COL_WHITE, 16, 8, 140, 24);
   lv_label_set_text(title, "VALUE");
   lv_obj_t *sub = text(page->tile, &plex_ui_12, COL_MUTED, 160, 12, 144, 16);
@@ -419,7 +510,7 @@ static void create_value_page(void) {
   lv_obj_set_style_text_align(page->paid, LV_TEXT_ALIGN_RIGHT, 0);
   lv_label_set_text(page->api, "VIA API  –");
   lv_label_set_text(page->paid, "YOU PAID  –");
-  create_pager(page->tile, VIEW_VALUE);
+  create_pager(page->tile, 9);
 }
 
 static void apply_value(void) {
@@ -500,11 +591,14 @@ void usage_screen_create(lv_obj_t *root) {
                     USAGE_QUOTA_CLAUDE_MODEL, USAGE_PROVIDER_CLAUDE);
   create_quota_page(&ui.quotas[1], VIEW_CLAUDE_ALL,
                     USAGE_QUOTA_CLAUDE_ALL, USAGE_PROVIDER_CLAUDE);
-  create_quota_page(&ui.quotas[2], VIEW_CODEX_WEEKLY,
+  create_quota_page(&ui.quotas[2], 2,
                     USAGE_QUOTA_CODEX_WEEK, USAGE_PROVIDER_CODEX);
+  create_quota_page(&ui.quotas[3], 3,
+                    USAGE_QUOTA_GROK_WEEK, USAGE_PROVIDER_GROK);
   create_burn_rate_page();
-  create_tracker_page(&ui.trackers[0], VIEW_TRACKER_CLAUDE, false);
-  create_tracker_page(&ui.trackers[1], VIEW_TRACKER_CODEX, true);
+  create_tracker_page(&ui.trackers[0], 5, 0);
+  create_tracker_page(&ui.trackers[1], 6, 1);
+  create_tracker_page(&ui.trackers[2], 7, 2);
   create_github_page();
   create_value_page();
 
@@ -535,7 +629,7 @@ void usage_screen_apply_tokens(const tk_tokens *tokens) {
   if (!tokens) return;
   ui.tokens = *tokens;
   ui.have_tokens = true;
-  for (int i = 0; i < 3; i++) apply_quota(&ui.quotas[i]);
+  for (int i = 0; i < 4; i++) apply_quota(&ui.quotas[i]);
   apply_forecasts();
   apply_value();
 }
@@ -545,7 +639,7 @@ void usage_screen_apply_agent(const tk_agent_snapshot *snapshot, int64_t now_us)
   ui.agents = *snapshot;
   ui.have_agents = true;
   ui.last_now_us = now_us;
-  for (int i = 0; i < 3; i++) apply_quota(&ui.quotas[i]);
+  for (int i = 0; i < 4; i++) apply_quota(&ui.quotas[i]);
   tk_agent_monitor_apply(snapshot, now_us);
 }
 
@@ -555,6 +649,7 @@ void usage_screen_apply_max_tracker(const tk_max_tracker *t) {
   ui.have_tracker = true;
   apply_tracker(&ui.trackers[0]);
   apply_tracker(&ui.trackers[1]);
+  apply_tracker(&ui.trackers[2]);
 }
 
 void usage_screen_apply_github(const tk_github_status *status) {

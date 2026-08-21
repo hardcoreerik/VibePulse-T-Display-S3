@@ -21,6 +21,49 @@ point at the backlog item.
 
 ---
 
+## 2026-08-20 · agent-status stack overflow before first paint of data
+
+**What happened:** Mini UI came back, then rebooted as soon as Wi-Fi
+connected. Serial: `stack overflow in task agent-status` right after
+`agentstatuspollning startad`.
+**Root cause:** Grok added a third `tk_agent_snapshot` provider (four jobs
+each). The parse result lived on the 6144-byte task stack next to cJSON
+and the HTTP client. Overflow → reboot loop → dashes forever.
+**The rule:** parsed snapshots and token/tracker structs stay in `.bss`
+(`static`), same as the HTTP body. Do not put a third provider on a 6 KB
+stack. Any `TK_AGENT_PROVIDER_COUNT` array must list every provider or it
+NULLs on apply (`LoadProhibited` in `bounded_job_count`).
+**Guards:** `test_agent_net_wiring.py` requires `static tk_agent_snapshot`
+and an 8192-byte task. **Watch for:** a fourth provider, or a two-slot
+`providers[]` initializer left behind.
+
+## 2026-08-20 · Mini white screen from 420 tracker cells
+
+**What happened:** after the Grok flash the T-Display-S3 sat on a white
+ST7789. Serial showed `task_wdt` on `main` / IDLE0, backtrace in
+`usage_screen_create` → `lv_obj_create` / `theme_apply`.
+**Root cause:** three Max Tracker pages × 140 `lv_obj` cells (plus theme
+apply on each) ran under the LVGL lock on `app_main`, so the idle task
+never fed the watchdog. Backlight was already on, panel never painted.
+**The rule:** Mini heatmaps use the AMOLED pattern — one widget, rects in
+`LV_EVENT_DRAW_MAIN`. Never one LVGL object per cell on 320×170.
+**Guards:** `test_tdisplay_screens.py` forbids `cells[TK_MT_DAYS]` and
+requires `tracker_grid_draw`. **Watch for:** any new per-day widget.
+
+## 2026-08-20 · Max Tracker snapshot dropped Grok
+
+**What happened:** `/api/tokens` had `grokDayTokens` but `/api/max-tracker`
+had no `grok` key, so the Mini heatmap stayed empty.
+**Root cause:** `observe_volume("grok")` wrote `EXTRA_PROVIDERS` state, then
+`MaxTrackerStore.snapshot` copied only `PROVIDERS` (`claude`, `codex`). A
+second bug would have stacked the same Grok daily total on every glance
+because those numbers are already summed, not incremental log lines.
+**The rule:** extra providers must ride the snapshot copy, and already-summed
+totals use `set_volume`, never `observe_volume`.
+**Guards:** `test/test_grok_usage.py` (`set_volume` does not stack; tokenserver
+calls `set_volume("grok")`). **Watch for:** adding a fourth provider and
+forgetting `EXTRA_PROVIDERS` in snapshot/prune.
+
 ## 2026-08-15 · kickstart restarts the process, not the plist
 
 **What happened:** the tokenserver kept dying with `unrecognized arguments:

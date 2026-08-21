@@ -438,7 +438,7 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(set(snapshot), {"v", "seq", "agents"})
         self.assertEqual(snapshot["v"], 2)
         self.assertEqual(snapshot["seq"], 0)
-        self.assertEqual(set(snapshot["agents"]), {"claude", "codex"})
+        self.assertEqual(set(snapshot["agents"]), {"claude", "codex", "grok"})
         for agent in snapshot["agents"].values():
             self.assertEqual(agent, {"active_count": 0, "jobs": []})
 
@@ -1721,7 +1721,7 @@ class AgentStatusServiceTests(unittest.TestCase):
             snapshot = service.snapshot()
 
             self.assertEqual(snapshot["v"], 2)
-            self.assertEqual(set(snapshot["agents"]), {"claude", "codex"})
+            self.assertEqual(set(snapshot["agents"]), {"claude", "codex", "grok"})
 
     def test_startup_replay_uses_old_claude_and_codex_iso_timestamps(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -2018,7 +2018,7 @@ class HandlerTests(unittest.TestCase):
             serialized = json.dumps(payload, ensure_ascii=False)
 
             self.assertEqual(set(payload), {"v", "seq", "agents"})
-            self.assertEqual(set(payload["agents"]), {"claude", "codex"})
+            self.assertEqual(set(payload["agents"]), {"claude", "codex", "grok"})
             allowed_job = {
                 "task_id", "event_id", "state", "project", "activity",
                 "model", "effort", "updated_ms",

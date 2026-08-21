@@ -25,6 +25,9 @@ static const char *TAG = "agent-net";
 #if defined(TK_AGENT_STATUS_URL) || defined(TORGET_TDISPLAY_S3)
 
 static tk_agent_http_response response;
+/* Three providers × four jobs no longer fit on the 6 KB task stack.
+ * Keep the parsed snapshot in .bss like the HTTP body. */
+static tk_agent_snapshot snapshot;
 
 static esp_err_t status_http_event(esp_http_client_event_t *event) {
   /* ESP-IDF ignorerar callbackens returvärde för ON_DATA. Den bounded
@@ -132,7 +135,6 @@ static void agent_net_task(void *arg) {
         tk_agent_http_fetch_bounded(client, &response, &status_http_io);
     esp_err_t err = fetch == TK_AGENT_HTTP_FETCH_OK ? ESP_OK : ESP_FAIL;
 
-    tk_agent_snapshot snapshot;
     bool transport_ok = err == ESP_OK;
     bool parsed = false;
     if (transport_ok && response.status == 200 && !response.overflow) {
@@ -151,7 +153,7 @@ static void agent_net_task(void *arg) {
 }
 
 void tokens_agent_net_start(void) {
-  xTaskCreate(agent_net_task, "agent-status", 6144, NULL, 5, NULL);
+  xTaskCreate(agent_net_task, "agent-status", 8192, NULL, 5, NULL);
 }
 
 #else

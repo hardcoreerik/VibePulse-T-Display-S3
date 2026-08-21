@@ -37,6 +37,8 @@ jobs:
             tools.tokenserver.test_quota_cache \
             tools.tokenserver.test_max_tracker \
             tools.tokenserver.test_smoke -v
+          python test/test_grok_usage.py
+          python test/test_tdisplay_screens.py
 
   firmware:
     name: ESP32-S3 firmware build

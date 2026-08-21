@@ -30,7 +30,7 @@
 static const char *TAG = "tokens";
 
 #define FETCH_EVERY_MS 30000
-#define BODY_MAX 2048
+#define BODY_MAX 4096
 
 #if defined(TK_TOKENS_URL) || defined(TORGET_TDISPLAY_S3)
 
@@ -59,7 +59,7 @@ static void net_task(void *arg) {
   vTaskDelay(pdMS_TO_TICKS(10000));
 
   for (;;) {
-    tk_tokens t;
+    static tk_tokens t;
     const char *url_p = tokens_url(url, sizeof url);
     if (url_p && torget_http_get(url_p, body, sizeof body, &len)
         && tk_tokens_parse(body, len, &t)) {
@@ -125,7 +125,7 @@ static void max_tracker_task(void *arg) {
   vTaskDelay(pdMS_TO_TICKS(15000));
 
   for (;;) {
-    tk_max_tracker t;
+    static tk_max_tracker t;
     const char *url_p = max_tracker_url(url, sizeof url);
     if (url_p && torget_http_get(url_p, body, sizeof body, &len)
         && tk_max_tracker_parse(body, len, &t)) {

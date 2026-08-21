@@ -101,6 +101,11 @@ typedef struct {
    * modellen (Fable/Opus) — tredje raden i Claudes egen usage-panel. */
   tk_limit claude_session, claude_week, claude_model_week;
   tk_limit codex_session, codex_week;
+  tk_limit grok_session, grok_week;
+  double grok_day_tokens, grok_month_tokens;
+  int has_grok_day_tokens, has_grok_month_tokens;
+  char grok_model[TK_QUOTA_LABEL_CAP];
+  int has_grok_model;
   char claude_model_week_label[TK_QUOTA_LABEL_CAP];
   int has_claude_model_week_label;
   /* OTA-annonsen: senaste byggets version pa Macen. Enheten jamfor sjalv
@@ -109,7 +114,7 @@ typedef struct {
    * describe-strangar tyst (18 tecken, hittat live 2026-08-14). */
   char ota_available_version[32];
   int has_ota_available_version;
-  tk_forecast claude_forecast, codex_forecast;
+  tk_forecast claude_forecast, codex_forecast, grok_forecast;
   tk_value value;
 } tk_tokens;
 

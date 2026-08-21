@@ -45,7 +45,7 @@ typedef struct {
 typedef struct {
   int coding_streak_days; /* -1 = unknown */
   bool stale;
-  tk_mt_provider claude, codex;
+  tk_mt_provider claude, codex, grok;
 } tk_max_tracker;
 
 #endif

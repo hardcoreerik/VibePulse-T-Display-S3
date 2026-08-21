@@ -74,7 +74,17 @@ def worst_case_payload() -> dict:
         "claudeModelWeekStale": False,
         "codexWeekStale": False,
     }
-    for prefix in ("claude", "codex"):
+    payload.update({
+        "grokWeekPct": 100.0,
+        "grokWeekResetMin": 999_999,
+        "grokSessionPct": 100.0,
+        "grokSessionResetMin": 999_999,
+        "grokWeekStale": False,
+        "grokDayTokens": 999_999_999_999,
+        "grokMonthTokens": 9_999_999_999_999,
+        "grokModel": "grok-4.6-build",
+    })
+    for prefix in ("claude", "codex", "grok"):
         payload[f"{prefix}ForecastState"] = "unavailable"
         payload[f"{prefix}ForecastPctAtReset"] = 100
         payload[f"{prefix}ForecastPaceFactor"] = 9999.9

@@ -15,24 +15,28 @@ def must(name: str, haystack: str, needle: str) -> None:
     assert needle in haystack, f"{name} missing {needle!r}"
 
 
-must("usage_screen.h", HEADER, "#define TK_USAGE_SCREEN_VIEWS 8")
+must("usage_screen.h", HEADER, "#define TK_USAGE_SCREEN_VIEWS 10")
 for view in (
-    "VIEW_CLAUDE_FABLE",
-    "VIEW_CLAUDE_ALL",
-    "VIEW_CODEX_WEEKLY",
-    "VIEW_BURN_RATE",
-    "VIEW_TRACKER_CLAUDE",
-    "VIEW_TRACKER_CODEX",
-    "VIEW_GITHUB",
-    "VIEW_VALUE",
+    "USAGE_QUOTA_CLAUDE_MODEL",
+    "USAGE_QUOTA_CODEX_WEEK",
+    "USAGE_QUOTA_GROK_WEEK",
+    "BURN RATE",
+    "MAX TRACKER",
+    "GITHUB",
+    "VALUE",
 ):
     must("mini", MINI, view)
 
 must("mini", MINI, "create_quota_page")
 must("mini", MINI, "create_burn_rate_page")
 must("mini", MINI, "create_tracker_page")
+must("mini", MINI, "tracker_grid_draw")
+must("mini", MINI, "LV_EVENT_DRAW_MAIN")
+assert "cells[TK_MT_DAYS]" not in MINI, "Mini must not allocate 140 LVGL cells per tracker"
 must("mini", MINI, "create_github_page")
 must("mini", MINI, "create_value_page")
+must("mini", MINI, "USAGE_QUOTA_GROK_WEEK")
+must("mini", MINI, "COL_GROK")
 must("mini", MINI, "tk_agent_monitor_create")
 must("mini", MINI, "usage_presenter_build_quota_page")
 must("mini", MINI, "usage_presenter_build_forecasts")

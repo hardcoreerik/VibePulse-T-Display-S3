@@ -7,11 +7,13 @@ same screens as the original 480 x 480 panel:
 1. Claude model week
 2. Claude all-models week
 3. Codex week
-4. Burn rate
-5. Max Tracker (Claude)
-6. Max Tracker (Codex)
-7. GitHub
-8. Value multiple
+4. Grok today/month tokens
+5. Burn rate (Claude, Codex, Grok)
+6. Max Tracker (Claude)
+7. Max Tracker (Codex)
+8. Max Tracker (Grok)
+9. GitHub
+10. Value multiple
 
 NEEDS YOU / DONE / ERROR take over the whole 320 x 170 glass; a short press
 dismisses them. GPIO14 pages forward; GPIO0 (BOOT) pages back after boot.

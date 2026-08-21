@@ -60,6 +60,8 @@ MODEL_LABELS = {
     "claude-opus-5": "OPUS 5",
     "claude-sonnet-5": "SONNET 5",
     "gpt-5.6-sol": "GPT-5.6 SOL",
+    "grok-4.5": "GROK 4.5",
+    "grok-4.6": "GROK 4.6",
 }
 
 
@@ -349,7 +351,7 @@ class AgentStatusStore:
         self._now = now
         self._lock = threading.Lock()
         self._seq = 0
-        self._agents = {provider: {} for provider in ("claude", "codex")}
+        self._agents = {provider: {} for provider in ("claude", "codex", "grok")}
 
     def apply(self, provider: str, event: Event,
               observed_at: Optional[float] = None,
@@ -357,7 +359,10 @@ class AgentStatusStore:
               refresh_unchanged: bool = True,
               event_id_override: Optional[str] = None) -> bool:
         if provider not in self._agents:
-            raise ValueError(f"unsupported provider: {provider}")
+            if provider == "grok":
+                self._agents[provider] = {}
+            else:
+                raise ValueError(f"unsupported provider: {provider}")
         if event.state not in STATES:
             raise ValueError(f"unsupported state: {event.state}")
         if event.activity is not None and event.activity not in ACTIVITIES:
